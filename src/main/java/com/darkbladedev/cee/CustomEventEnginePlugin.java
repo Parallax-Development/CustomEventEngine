@@ -36,7 +36,7 @@ import com.darkbladedev.cee.core.persistence.PersistenceManager;
 import com.darkbladedev.cee.core.runtime.ChunkSelectionStrategies;
 import com.darkbladedev.cee.core.runtime.EventEngine;
 import com.darkbladedev.cee.core.runtime.ScopeFactories;
-import com.darkbladedev.cee.core.trigger.IntervalTrigger;
+import com.darkbladedev.cee.core.trigger.CommandTrigger;
 import com.darkbladedev.cee.util.DurationParser;
 
 import java.io.File;
@@ -107,7 +107,7 @@ public final class CustomEventEnginePlugin extends JavaPlugin {
         engine.registerAction("broadcast", config -> new BroadcastAction(String.valueOf(config.getOrDefault("message", ""))));
         engine.registerAction("spawn_lightning", config -> new SpawnLightningAction());
         engine.registerAction("clear_weather", config -> new ClearWeatherAction());
-        engine.registerAction("set_time", config -> new SetTimeAction(parseTicks(config.getOrDefault("time", 1000), 1000)));
+        engine.registerAction("set_time", config -> new SetTimeAction(config.getOrDefault("time", 1000)));
         engine.registerAction("send_participants", config -> new SendParticipantsAction(String.valueOf(config.getOrDefault("message", ""))));
         engine.registerAction("set_variable", config -> new SetVariableAction(String.valueOf(config.getOrDefault("key", "")), config.get("value")));
         engine.registerCondition("players_online", config -> new PlayersOnlineCondition(parseInt(config.getOrDefault("min", 1))));
@@ -115,7 +115,7 @@ public final class CustomEventEnginePlugin extends JavaPlugin {
         engine.registerCondition("world_time", config -> new WorldTimeRangeCondition(parseTicks(config.getOrDefault("min", 0), 0), parseTicks(config.getOrDefault("max", 23999), 23999)));
         engine.registerCondition("random_chance", config -> new RandomChanceCondition(parseDouble(config.getOrDefault("chance", 1.0), 1.0)));
         engine.registerCondition("variable_equals", config -> new VariableEqualsCondition(String.valueOf(config.getOrDefault("key", "")), String.valueOf(config.getOrDefault("value", ""))));
-        engine.registerTrigger("interval", (config, eventId) -> new IntervalTrigger(this, eventId, DurationParser.parseTicks(config.get("every")), engine));
+        engine.registerTrigger("command", (config, eventId) -> new CommandTrigger(this, eventId, config, engine));
         engine.registerScope("chunk_radius", ScopeFactories.chunkRadius());
         engine.registerChunkStrategy("random_loaded_chunk", ChunkSelectionStrategies.randomLoadedChunk());
     }

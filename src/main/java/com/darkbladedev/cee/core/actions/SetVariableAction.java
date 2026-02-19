@@ -2,6 +2,7 @@ package com.darkbladedev.cee.core.actions;
 
 import com.darkbladedev.cee.api.Action;
 import com.darkbladedev.cee.api.EventContext;
+import com.darkbladedev.cee.util.ValueResolver;
 
 public final class SetVariableAction implements Action {
     private final String key;
@@ -17,6 +18,7 @@ public final class SetVariableAction implements Action {
         if (key == null || key.isBlank()) {
             return;
         }
-        context.setVariable(key, value);
+        Object resolved = ValueResolver.resolveValue(value, context);
+        context.setVariable(key, resolved);
     }
 }

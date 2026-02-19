@@ -29,6 +29,8 @@ event.stop.success: "{prefix}&aEvento detenido: &f{event}"
 
 event.status.none: "{prefix}&eNo hay evento activo en ese chunk."
 event.status.active: "{prefix}&eEvento: &f{event} &7Estado: &f{state}"
+event.status.interval.header: "{prefix}&eEventos por intervalo (&f{count}&e):"
+event.status.interval.entry: "{prefix}&7- &f{event} &7en &f{ticks}&7 ticks"
 
 event.inspect.none: "{prefix}&eNo hay runtime activo en ese chunk."
 event.inspect.header: "{prefix}&eEvento: &f{event} &7Estado: &f{state}"

@@ -49,7 +49,7 @@ public final class PersistenceManager {
             snapshot.setChunks(chunks);
             snapshot.setInstructionPointer(runtime.getInstructionPointer());
             snapshot.setWaitRemaining(runtime.getWaitRemaining());
-            snapshot.setVariables(runtime.getVariables());
+            snapshot.setVariables(new java.util.HashMap<>(runtime.getContext().getLocalVariables()));
             snapshots.add(snapshot);
         }
         try (FileWriter writer = new FileWriter(file)) {
@@ -76,7 +76,8 @@ public final class PersistenceManager {
                 if (world == null) {
                     continue;
                 }
-                EventContextImpl context = new EventContextImpl(plugin.getServer(), world);
+                EventContextImpl context = new EventContextImpl(plugin.getServer(), world, engine.getGlobalVariables(), definition.getVariables(), engine.getGlobalVariableDefinitions());
+                engine.initializeContext(context, definition);
                 if (snapshot.getVariables() != null) {
                     context.getVariables().putAll(snapshot.getVariables());
                 }

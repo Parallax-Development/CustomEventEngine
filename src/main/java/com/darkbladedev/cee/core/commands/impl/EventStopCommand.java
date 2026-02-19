@@ -65,7 +65,9 @@ public final class EventStopCommand implements SubCommand {
             messages.send(context.sender(), "event.stop.none", Map.of());
             return;
         }
+        String eventId = handle.get().getEventId();
         handle.get().cancel();
-        messages.send(context.sender(), "event.stop.success", Map.of("event", handle.get().getEventId()));
+        services.engine().disableIntervalSchedule(eventId);
+        messages.send(context.sender(), "event.stop.success", Map.of("event", eventId));
     }
 }

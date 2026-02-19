@@ -63,11 +63,25 @@ public final class EventStatusCommand implements SubCommand {
         Optional<EventHandle> handle = services.engine().getActiveEvent(ChunkUtil.fromLocation(location));
         if (handle.isEmpty()) {
             messages.send(context.sender(), "event.status.none", Map.of());
+        } else {
+            messages.send(context.sender(), "event.status.active", Map.of(
+                "event", handle.get().getEventId(),
+                "state", handle.get().getState().name()
+            ));
+        }
+
+        var intervals = services.engine().getIntervalStatuses();
+        if (intervals.isEmpty()) {
             return;
         }
-        messages.send(context.sender(), "event.status.active", Map.of(
-            "event", handle.get().getEventId(),
-            "state", handle.get().getState().name()
+        messages.send(context.sender(), "event.status.interval.header", Map.of(
+            "count", String.valueOf(intervals.size())
         ));
+        for (var interval : intervals) {
+            messages.send(context.sender(), "event.status.interval.entry", Map.of(
+                "event", interval.eventId(),
+                "ticks", String.valueOf(interval.remainingTicks())
+            ));
+        }
     }
 }

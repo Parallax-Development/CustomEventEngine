@@ -10,7 +10,7 @@ import com.darkbladedev.cee.core.definition.ActionNodeDefinition;
 import com.darkbladedev.cee.core.definition.DelayNodeDefinition;
 import com.darkbladedev.cee.core.definition.FlowDefinition;
 import com.darkbladedev.cee.core.definition.FlowNodeDefinition;
-import com.darkbladedev.cee.core.definition.ParallelNodeDefinition;
+import com.darkbladedev.cee.core.definition.AsyncNodeDefinition;
 import com.darkbladedev.cee.core.definition.RepeatNodeDefinition;
 
 public final class FlowCompiler {
@@ -37,12 +37,12 @@ public final class FlowCompiler {
                 instructions.add(new LoopStartInstruction(repeatNode.getTimes()));
                 compileNodes(repeatNode.getFlow().getNodes(), instructions);
                 instructions.add(new LoopEndInstruction(loopStartIndex, repeatNode.getEveryTicks()));
-            } else if (node instanceof ParallelNodeDefinition parallelNode) {
+            } else if (node instanceof AsyncNodeDefinition asyncNode) {
                 List<ExecutionPlan> branches = new ArrayList<>();
-                for (FlowDefinition branch : parallelNode.getBranches()) {
+                for (FlowDefinition branch : asyncNode.getBranches()) {
                     branches.add(compile(branch));
                 }
-                instructions.add(new ParallelInstruction(branches));
+                instructions.add(new AsyncInstruction(branches));
             }
         }
     }

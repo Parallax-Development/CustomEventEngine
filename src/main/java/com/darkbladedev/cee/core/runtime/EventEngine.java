@@ -19,6 +19,9 @@ import com.darkbladedev.cee.api.TriggerFactory;
 import com.darkbladedev.cee.core.definition.ActionDefinition;
 import com.darkbladedev.cee.core.definition.ActionNodeDefinition;
 import com.darkbladedev.cee.core.definition.EventDefinition;
+import com.darkbladedev.cee.core.definition.VariableDefinition;
+import com.darkbladedev.cee.core.definition.VariableScope;
+import com.darkbladedev.cee.core.definition.VariableType;
 import com.darkbladedev.cee.core.expansion.ExpansionManager;
 import com.darkbladedev.cee.core.flow.ExecutionPlan;
 import com.darkbladedev.cee.core.flow.FlowCompiler;
@@ -29,12 +32,17 @@ import com.darkbladedev.cee.core.trigger.TriggerCallback;
 import com.darkbladedev.cee.util.DurationParser;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.mvel2.MVEL;
 
 public final class EventEngine implements CustomEventEngine, TriggerCallback {
     private final Plugin plugin;
@@ -50,6 +58,9 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
     private final Map<UUID, EventRuntime> runtimes;
     private final Map<UUID, EventDefinition> runtimeDefinitions;
     private final Map<UUID, Long> lastExpansionTick;
+    private final Map<String, VariableDefinition> globalVariableDefinitions;
+    private final Map<String, Object> globalVariables;
+    private final Map<String, Serializable> expressionCache;
     private BukkitRunnable expansionTask;
 
     public EventEngine(Plugin plugin) {
@@ -62,6 +73,9 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         this.runtimes = new HashMap<>();
         this.runtimeDefinitions = new HashMap<>();
         this.lastExpansionTick = new HashMap<>();
+        this.globalVariableDefinitions = new HashMap<>();
+        this.globalVariables = new ConcurrentHashMap<>();
+        this.expressionCache = new ConcurrentHashMap<>();
         this.scheduler = new RuntimeScheduler(plugin, runtime -> {
             lockManager.release(runtime);
             runtimes.remove(runtime.getRuntimeId());
@@ -94,6 +108,8 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         for (EventDefinition definition : loader.loadFromFolder(folder)) {
             definitions.put(definition.getId(), definition);
         }
+        syncGlobalVariableDefinitions();
+        syncGlobalVariables();
     }
 
     public void reloadDefinitions(File folder, Server server) {
@@ -165,6 +181,14 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         return Optional.ofNullable(lockManager.getRuntime(chunkPos));
     }
 
+    public java.util.List<IntervalScheduleRegistry.IntervalStatus> getIntervalStatuses() {
+        return scheduler.getIntervalStatuses();
+    }
+
+    public void disableIntervalSchedule(String eventId) {
+        scheduler.unregisterInterval(eventId);
+    }
+
     @Override
     public Optional<EventHandle> getActiveEvent(ChunkPos chunkPos) {
         return getRuntime(chunkPos).map(EventHandleImpl::new);
@@ -183,7 +207,8 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         if (world == null) {
             return StartResult.INVALID_TARGET;
         }
-        EventContextImpl context = new EventContextImpl(plugin.getServer(), world);
+        EventContextImpl context = new EventContextImpl(plugin.getServer(), world, globalVariables, definition.getVariables(), globalVariableDefinitions);
+        initializeContext(context, definition);
         ExecutionPlan plan = createExecutionPlan(definition);
         EventRuntime runtime = new EventRuntime(UUID.randomUUID(), definition.getId(), plan, context, chunkPos);
         runtime.setState(EventState.RUNNING);
@@ -210,6 +235,213 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         scheduler.addRuntime(runtime);
         runtimes.put(runtime.getRuntimeId(), runtime);
         runtimeDefinitions.put(runtime.getRuntimeId(), definition);
+    }
+
+    public Map<String, Object> getGlobalVariables() {
+        return globalVariables;
+    }
+
+    public Map<String, VariableDefinition> getGlobalVariableDefinitions() {
+        return globalVariableDefinitions;
+    }
+
+    public void initializeContext(EventContextImpl context, EventDefinition definition) {
+        initializeLocalVariables(context, definition.getVariables());
+    }
+
+    private void syncGlobalVariableDefinitions() {
+        globalVariableDefinitions.clear();
+        for (EventDefinition definition : definitions.values()) {
+            for (Map.Entry<String, VariableDefinition> entry : definition.getVariables().entrySet()) {
+                VariableDefinition variable = entry.getValue();
+                if (variable.getScope() != VariableScope.GLOBAL) {
+                    continue;
+                }
+                VariableDefinition existing = globalVariableDefinitions.get(entry.getKey());
+                if (existing != null && existing.getType() != variable.getType()) {
+                    throw new IllegalStateException("Variable global duplicada con tipo distinto: " + entry.getKey());
+                }
+                globalVariableDefinitions.put(entry.getKey(), variable);
+            }
+        }
+    }
+
+    private void syncGlobalVariables() {
+        globalVariables.keySet().removeIf(key -> !globalVariableDefinitions.containsKey(key));
+
+        Map<String, VariableDefinition> pending = new LinkedHashMap<>();
+        for (Map.Entry<String, VariableDefinition> entry : globalVariableDefinitions.entrySet()) {
+            String name = entry.getKey();
+            VariableDefinition def = entry.getValue();
+            if (globalVariables.containsKey(name)) {
+                coerceToType(name, def.getType(), globalVariables.get(name));
+                continue;
+            }
+            pending.put(name, def);
+        }
+
+        Map<String, Exception> lastErrors = new HashMap<>();
+        boolean progressed = true;
+        int passes = 0;
+        while (!pending.isEmpty() && progressed && passes < 32) {
+            progressed = false;
+            passes++;
+            for (var it = pending.entrySet().iterator(); it.hasNext(); ) {
+                Map.Entry<String, VariableDefinition> entry = it.next();
+                String name = entry.getKey();
+                VariableDefinition def = entry.getValue();
+                try {
+                    Object resolved = resolveInitialValue(name, def, globalVariables);
+                    globalVariables.put(name, resolved);
+                    it.remove();
+                    progressed = true;
+                } catch (Exception ex) {
+                    lastErrors.put(name, ex);
+                }
+            }
+        }
+
+        if (!pending.isEmpty()) {
+            StringBuilder message = new StringBuilder("No se pudieron resolver variables globales: ");
+            boolean first = true;
+            for (String name : pending.keySet()) {
+                if (!first) {
+                    message.append(", ");
+                }
+                first = false;
+                Exception ex = lastErrors.get(name);
+                if (ex == null) {
+                    message.append(name);
+                } else {
+                    message.append(name).append(" (").append(ex.getMessage()).append(")");
+                }
+            }
+            throw new IllegalStateException(message.toString());
+        }
+    }
+
+    private void initializeLocalVariables(EventContextImpl context, Map<String, VariableDefinition> variables) {
+        Map<String, VariableDefinition> pending = new LinkedHashMap<>();
+        for (Map.Entry<String, VariableDefinition> entry : variables.entrySet()) {
+            if (entry.getValue().getScope() == VariableScope.LOCAL) {
+                pending.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        Map<String, Exception> lastErrors = new HashMap<>();
+        boolean progressed = true;
+        int passes = 0;
+        while (!pending.isEmpty() && progressed && passes < 32) {
+            progressed = false;
+            passes++;
+            for (var it = pending.entrySet().iterator(); it.hasNext(); ) {
+                Map.Entry<String, VariableDefinition> entry = it.next();
+                String name = entry.getKey();
+                VariableDefinition def = entry.getValue();
+                try {
+                    Object resolved = resolveInitialValue(name, def, context.getVariables());
+                    context.setVariable(name, resolved);
+                    it.remove();
+                    progressed = true;
+                } catch (Exception ex) {
+                    lastErrors.put(name, ex);
+                }
+            }
+        }
+
+        if (!pending.isEmpty()) {
+            StringBuilder message = new StringBuilder("No se pudieron resolver variables locales en '");
+            message.append(context.getWorld().getName()).append("': ");
+            boolean first = true;
+            for (String name : pending.keySet()) {
+                if (!first) {
+                    message.append(", ");
+                }
+                first = false;
+                Exception ex = lastErrors.get(name);
+                if (ex == null) {
+                    message.append(name);
+                } else {
+                    message.append(name).append(" (").append(ex.getMessage()).append(")");
+                }
+            }
+            throw new IllegalStateException(message.toString());
+        }
+    }
+
+    private Object resolveInitialValue(String name, VariableDefinition def, Map<String, Object> environment) {
+        Object raw = def.getInitial();
+        Object value;
+        if (raw == null) {
+            value = defaultForType(def.getType());
+        } else if (raw instanceof String str) {
+            String trimmed = str.trim();
+            if (trimmed.startsWith("=")) {
+                String expr = trimmed.substring(1).trim();
+                Serializable compiled = expressionCache.computeIfAbsent(expr, MVEL::compileExpression);
+                value = MVEL.executeExpression(compiled, environment);
+            } else if (trimmed.startsWith("${") && trimmed.endsWith("}") && trimmed.length() > 3) {
+                String ref = trimmed.substring(2, trimmed.length() - 1).trim();
+                if (!environment.containsKey(ref)) {
+                    throw new IllegalStateException("Referencia aún no resuelta: " + ref);
+                }
+                value = environment.get(ref);
+            } else {
+                value = str;
+            }
+        } else {
+            value = raw;
+        }
+
+        return coerceToType(name, def.getType(), value);
+    }
+
+    private Object defaultForType(VariableType type) {
+        return switch (type) {
+            case STRING -> "";
+            case NUMBER -> 0;
+            case BOOLEAN -> false;
+            case ARRAY -> List.of();
+            case OBJECT -> Map.of();
+        };
+    }
+
+    private Object coerceToType(String name, VariableType type, Object value) {
+        if (value == null) {
+            return null;
+        }
+        return switch (type) {
+            case STRING -> {
+                if (!(value instanceof String)) {
+                    throw new IllegalStateException("Variable '" + name + "' debe ser string.");
+                }
+                yield value;
+            }
+            case NUMBER -> {
+                if (!(value instanceof Number)) {
+                    throw new IllegalStateException("Variable '" + name + "' debe ser number.");
+                }
+                yield value;
+            }
+            case BOOLEAN -> {
+                if (!(value instanceof Boolean)) {
+                    throw new IllegalStateException("Variable '" + name + "' debe ser boolean.");
+                }
+                yield value;
+            }
+            case ARRAY -> {
+                if (!(value instanceof List<?>)) {
+                    throw new IllegalStateException("Variable '" + name + "' debe ser array.");
+                }
+                yield value;
+            }
+            case OBJECT -> {
+                if (!(value instanceof Map<?, ?>)) {
+                    throw new IllegalStateException("Variable '" + name + "' debe ser object.");
+                }
+                yield value;
+            }
+        };
     }
 
     @Override
@@ -239,7 +471,7 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
 
     private Trigger createTrigger(EventDefinition definition) {
         TriggerFactory factory = registry.getTriggerFactory(definition.getTrigger().getType())
-            .orElse((config, eventId) -> new IntervalTrigger(plugin, eventId, DurationParser.parseTicks(config.get("every")), this));
+            .orElse((config, eventId) -> new IntervalTrigger(plugin, eventId, DurationParser.parseTicks(config.get("every")), this, scheduler));
         return factory.create(definition.getTrigger().getConfig(), definition.getId());
     }
 

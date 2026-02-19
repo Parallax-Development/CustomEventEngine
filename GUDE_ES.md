@@ -96,8 +96,66 @@ Ejemplos de duración:
 - `5s` = 100 ticks
 - `1m` = 1200 ticks
 
+### Variables (event.variables)
+Podés declarar variables dentro de cada evento. Se guardan en el contexto del evento y se pueden usar desde condiciones/acciones.
+
+Estructura:
+```yaml
+event:
+  variables:
+    fase:
+      type: string
+      scope: local
+      initial: "inicio"
+      description: "Estado del evento"
+```
+
+Campos:
+- `type`: `string`, `number`, `boolean`, `array`, `object`.
+- `scope`: `local` (por runtime) o `global` (compartida entre runtimes del engine).
+- `initial` (opcional): valor inicial.
+- `description` (opcional): texto descriptivo.
+
+Reglas:
+- El nombre debe ser `A-Za-z_` seguido de `A-Za-z0-9_`.
+- Si `initial` no existe, se usa un default por tipo (ej: `0`, `false`, `[]`, `{}`, `""`).
+- Si una variable es `global`, el engine junta las definiciones de todos los eventos. Si dos eventos declaran la misma variable global con distinto `type`, se considera error.
+
+Inicialización avanzada:
+- Referencia: `"${otra_variable}"` copia el valor de otra variable.
+- Expresión: `"= <expr>"` evalúa una expresión MVEL al iniciar el runtime.
+
+Ejemplo (dependencias + expresión):
+```yaml
+event:
+  variables:
+    base:
+      type: number
+      scope: global
+      initial: 10
+    bonus:
+      type: number
+      scope: local
+      initial: "= base + 5"
+    mensaje:
+      type: string
+      scope: local
+      initial: "Listo"
+```
+
+### Interpolación en strings
+En strings (por ejemplo `broadcast.message` o `send_participants.message`) podés inyectar variables:
+- `{variable}`
+- `${variable}`
+
+Ejemplo:
+```yaml
+- action: "broadcast"
+  message: "&aFase: {fase} | Bonus: ${bonus}"
+```
+
 ### Palabras clave reservadas
-`event`, `id`, `trigger`, `conditions`, `flow`, `nodes`, `action`, `delay`, `scope`, `expansion`, `target`, `chunk_policy`, `chunk_unload_policy`
+`event`, `id`, `trigger`, `conditions`, `variables`, `flow`, `nodes`, `action`, `delay`, `scope`, `expansion`, `target`, `chunk_load_rules`, `chunk_unload_rules`
 
 ### Convenciones
 - `event.id` en minúsculas con guiones o guiones bajos.
@@ -109,28 +167,88 @@ Ejemplos de duración:
 - `/cee help [comando]` (permiso `cee.help`)
 - `/cee list [pagina]` y `/cee list all` (permiso `cee.view`)
 - `/cee reload` y `/cee reload silent` (permiso `cee.admin`)
-- `/cee event start <evento> [ubicacion]` (permiso `cee.admin`)
-- `/cee event stop [ubicacion]` (permiso `cee.admin`)
-- `/cee event status [ubicacion]` (permiso `cee.view`)
-- `/cee event inspect [ubicacion]` (permiso `cee.admin`)
+- `/cee event start <evento> [mundo x z]` (permiso `cee.admin`)
+- `/cee event stop [mundo x z]` (permiso `cee.admin`)
+- `/cee event status [mundo x z]` (permiso `cee.view`) (incluye eventos pendientes por intervalos)
+- `/cee event inspect [mundo x z]` (permiso `cee.admin`)
 - `/cee player info <jugador>` (permiso `cee.view`)
+
+#### Nota: `/cee event status`
+- Si hay un runtime bloqueando el chunk objetivo, se muestra como evento activo.
+- Además, lista los eventos con trigger `interval` registrados y el tiempo restante (ticks) para el próximo disparo.
+- `/cee event stop` desregistra el scheduling del evento detenido si estaba configurado con trigger `interval`.
 
 ### Elementos del DSL soportados actualmente
 - `trigger.type = interval` con `every` (duración).
+- `trigger.type = command` con `command` (opcional), `permission` (opcional) y `cancel` (opcional).
 - `conditions.<key>.type = players_online` con `min`.
 - `conditions.<key>.type = expression` con `expression`.
 - `conditions.<key>.type = world_time` con `min` y `max`.
 - `conditions.<key>.type = random_chance` con `chance`.
 - `conditions.<key>.type = variable_equals` con `key` y `value`.
+- `event.variables` para variables `local`/`global` con inicialización.
 - `flow.nodes[].action = spawn_lightning`, `broadcast`, `clear_weather`, `set_time`, `send_participants`, `set_variable`.
 - `flow.nodes[].delay = <duración>`.
 - `flow.nodes[].config` para parámetros de la acción.
 - `scope.type = chunk_radius` con `radius`.
 - `target.strategy = random_loaded_chunk`.
 
+### Tabla de actions
+Los parámetros de las acciones se pueden definir de dos formas equivalentes:
+- Como claves al mismo nivel del nodo (`message: ...`, `time: ...`, etc.)
+- Dentro de `config:`
+
+| Action type | Utilidad | Parámetros disponibles | Ejemplo mínimo |
+|---|---|---|---|
+| `broadcast` | Enviar mensaje a todos los jugadores del servidor. | `message` (string) | `- action: "broadcast"\n  message: "&aHola"` |
+| `clear_weather` | Quitar lluvia/tormenta y reiniciar duraciones climáticas del mundo. | (sin parámetros) | `- action: "clear_weather"` |
+| `send_participants` | Enviar mensaje solo a los participantes del evento. | `message` (string) | `- action: "send_participants"\n  message: "&eEvento activo"` |
+| `set_time` | Ajustar el tiempo del mundo. | `time` (ticks/duración o `${variable}` o `= expr`) | `- action: "set_time"\n  time: "13000t"` |
+| `set_variable` | Guardar una variable en el contexto del evento. | `key` (string), `value` (any, soporta `${var}` y `= expr`) | `- action: "set_variable"\n  key: "fase"\n  value: "inicio"` |
+| `spawn_lightning` | Spawnear un rayo en la ubicación del evento. | (sin parámetros) | `- action: "spawn_lightning"` |
+
+### Tabla de conditions
+| Condition type | Utilidad | Parámetros disponibles | Ejemplo mínimo |
+|---|---|---|---|
+| `expression` | Evaluar una expresión MVEL para decidir si el evento puede ejecutarse. | `expression` (string) | `type: "expression"\nexpression: "playersOnline >= 5"` |
+| `players_online` | Requerir un mínimo de jugadores conectados. | `min` (int) | `type: "players_online"\nmin: 5` |
+| `random_chance` | Permitir ejecución con una probabilidad aleatoria. | `chance` (number). Acepta `0.0–1.0` o porcentaje (`25` = 25%). | `type: "random_chance"\nchance: 25` |
+| `variable_equals` | Comparar una variable del contexto con un valor esperado. | `key` (string), `value` (string) | `type: "variable_equals"\nkey: "fase"\nvalue: "inicio"` |
+| `world_time` | Validar que el tiempo del mundo esté dentro de un rango (ticks 0–23999). Soporta rangos que cruzan 24000. | `min` (ticks), `max` (ticks) | `type: "world_time"\nmin: "12000t"\nmax: "23000t"` |
+
+### Triggers
+
+#### Trigger `interval`
+```yaml
+trigger:
+  type: "interval"
+  every: "60s"
+```
+
+#### Trigger `command`
+Activa el evento cuando un jugador ejecuta un comando.
+
+- `command` (opcional): comando a escuchar. Si se omite, se usa `/cee event start <event>`.
+- `permission` (opcional): permiso requerido para disparar el evento. Default: `cee.admin`.
+- `cancel` (opcional): si `true`, cancela la ejecución del comando original. Default: `true`.
+
+Ejemplo (comando personalizado):
+```yaml
+trigger:
+  type: "command"
+  command: "/tormenta"
+  permission: "cee.admin"
+  cancel: true
+```
+
+Ejemplo (default del plugin para este evento):
+```yaml
+trigger:
+  type: "command"
+```
+
 ### Limitaciones actuales
-- `repeat` y `parallel` existen a nivel de modelo, pero no hay parsing YAML.
-- `chunk_policy` y `chunk_unload_policy` existen, pero no se usan aún en runtime.
+- `chunk_load_rules` y `chunk_unload_rules` se parsean, pero no se aplican aún en runtime.
 
 ## 5) Tutorial paso a paso
 

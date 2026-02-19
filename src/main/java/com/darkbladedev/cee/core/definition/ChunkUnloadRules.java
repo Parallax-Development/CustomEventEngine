@@ -1,6 +1,6 @@
 package com.darkbladedev.cee.core.definition;
 
-public enum ChunkUnloadPolicy {
+public enum ChunkUnloadRules {
     PAUSE,
     CANCEL,
     KEEP_LOADED

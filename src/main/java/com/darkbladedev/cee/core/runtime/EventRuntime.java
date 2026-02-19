@@ -24,7 +24,7 @@ public final class EventRuntime {
     private final ChunkPos origin;
     private final Set<UUID> chunkLocks;
     private final Deque<Integer> loopCounters;
-    private final List<EventRuntime> parallelChildren;
+    private final List<EventRuntime> asyncChildren;
     private volatile EventState state;
     private int instructionPointer;
     private long waitUntilTick;
@@ -37,7 +37,7 @@ public final class EventRuntime {
         this.origin = Objects.requireNonNull(origin, "origin");
         this.chunkLocks = ConcurrentHashMap.newKeySet();
         this.loopCounters = new ArrayDeque<>();
-        this.parallelChildren = new ArrayList<>();
+        this.asyncChildren = new ArrayList<>();
         this.state = EventState.CREATED;
     }
 
@@ -149,21 +149,21 @@ public final class EventRuntime {
         state = EventState.WAITING;
     }
 
-    public boolean hasParallelChildren() {
-        return !parallelChildren.isEmpty();
+    public boolean hasAsyncChildren() {
+        return !asyncChildren.isEmpty();
     }
 
-    public void startParallel(List<ExecutionPlan> branches) {
-        parallelChildren.clear();
+    public void startAsync(List<ExecutionPlan> branches) {
+        asyncChildren.clear();
         for (ExecutionPlan branch : branches) {
             EventRuntime child = new EventRuntime(UUID.randomUUID(), eventId, branch, context, origin);
             child.setState(EventState.RUNNING);
-            parallelChildren.add(child);
+            asyncChildren.add(child);
         }
     }
 
-    public boolean areParallelChildrenComplete() {
-        for (EventRuntime child : parallelChildren) {
+    public boolean areAsyncChildrenComplete() {
+        for (EventRuntime child : asyncChildren) {
             if (child.getState() != EventState.FINISHED && child.getState() != EventState.CANCELLED) {
                 return false;
             }
@@ -171,8 +171,8 @@ public final class EventRuntime {
         return true;
     }
 
-    public void clearParallel() {
-        parallelChildren.clear();
+    public void clearAsync() {
+        asyncChildren.clear();
     }
 
     public void tick() {
@@ -182,8 +182,8 @@ public final class EventRuntime {
         if (state == EventState.CREATED) {
             state = EventState.RUNNING;
         }
-        if (hasParallelChildren()) {
-            for (EventRuntime child : parallelChildren) {
+        if (hasAsyncChildren()) {
+            for (EventRuntime child : asyncChildren) {
                 child.tick();
             }
         }

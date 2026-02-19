@@ -1,6 +1,9 @@
 package com.darkbladedev.cee.core.definition;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public final class EventDefinition {
@@ -11,8 +14,9 @@ public final class EventDefinition {
     private final ScopeDefinition scope;
     private final ExpansionDefinition expansion;
     private final ChunkTargetDefinition target;
-    private final ChunkPolicy chunkPolicy;
-    private final ChunkUnloadPolicy chunkUnloadPolicy;
+    private final ChunkLoadRules chunkLoadRules;
+    private final ChunkUnloadRules chunkUnloadRules;
+    private final Map<String, VariableDefinition> variables;
 
     public EventDefinition(String id,
                            TriggerDefinition trigger,
@@ -21,8 +25,9 @@ public final class EventDefinition {
                            ScopeDefinition scope,
                            ExpansionDefinition expansion,
                            ChunkTargetDefinition target,
-                           ChunkPolicy chunkPolicy,
-                           ChunkUnloadPolicy chunkUnloadPolicy) {
+                           ChunkLoadRules chunkLoadRules,
+                           ChunkUnloadRules chunkUnloadRules,
+                           Map<String, VariableDefinition> variables) {
         this.id = Objects.requireNonNull(id, "id");
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.conditions = List.copyOf(conditions);
@@ -30,8 +35,13 @@ public final class EventDefinition {
         this.scope = Objects.requireNonNull(scope, "scope");
         this.expansion = Objects.requireNonNull(expansion, "expansion");
         this.target = Objects.requireNonNull(target, "target");
-        this.chunkPolicy = Objects.requireNonNull(chunkPolicy, "chunkPolicy");
-        this.chunkUnloadPolicy = Objects.requireNonNull(chunkUnloadPolicy, "chunkUnloadPolicy");
+        this.chunkLoadRules = Objects.requireNonNull(chunkLoadRules, "chunkLoadRules");
+        this.chunkUnloadRules = Objects.requireNonNull(chunkUnloadRules, "chunkUnloadRules");
+        Map<String, VariableDefinition> map = new LinkedHashMap<>();
+        if (variables != null) {
+            map.putAll(variables);
+        }
+        this.variables = Collections.unmodifiableMap(map);
     }
 
     public String getId() {
@@ -62,11 +72,15 @@ public final class EventDefinition {
         return target;
     }
 
-    public ChunkPolicy getChunkPolicy() {
-        return chunkPolicy;
+    public ChunkLoadRules getChunkLoadRules() {
+        return chunkLoadRules;
     }
 
-    public ChunkUnloadPolicy getChunkUnloadPolicy() {
-        return chunkUnloadPolicy;
+    public ChunkUnloadRules getChunkUnloadRules() {
+        return chunkUnloadRules;
+    }
+
+    public Map<String, VariableDefinition> getVariables() {
+        return variables;
     }
 }
