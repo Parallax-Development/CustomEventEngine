@@ -14,6 +14,9 @@ import com.darkbladedev.cee.core.commands.CommandRegistry;
 import com.darkbladedev.cee.core.commands.TabCompleterEngine;
 import com.darkbladedev.cee.core.commands.impl.CommandServices;
 import com.darkbladedev.cee.core.commands.impl.EventInspectCommand;
+import com.darkbladedev.cee.core.commands.impl.EventPurgeChunkCommand;
+import com.darkbladedev.cee.core.commands.impl.EventPurgeRegionCommand;
+import com.darkbladedev.cee.core.commands.impl.EventPurgeWorldCommand;
 import com.darkbladedev.cee.core.commands.impl.EventStartCommand;
 import com.darkbladedev.cee.core.commands.impl.EventStatusCommand;
 import com.darkbladedev.cee.core.commands.impl.EventStopCommand;
@@ -99,6 +102,9 @@ public final class CustomEventEnginePlugin extends JavaPlugin {
         commandManager.registerSubCommand(new EventStopCommand(commandServices, messageService, targetResolver));
         commandManager.registerSubCommand(new EventStatusCommand(commandServices, messageService, targetResolver));
         commandManager.registerSubCommand(new EventInspectCommand(commandServices, messageService, targetResolver));
+        commandManager.registerSubCommand(new EventPurgeChunkCommand(commandServices, messageService, targetResolver));
+        commandManager.registerSubCommand(new EventPurgeWorldCommand(commandServices, messageService));
+        commandManager.registerSubCommand(new EventPurgeRegionCommand(commandServices, messageService));
         commandManager.registerSubCommand(new PlayerInfoCommand(commandServices, messageService));
         commandManager.register();
     }

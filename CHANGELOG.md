@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.6] - 2026-02-19
+
+### Added
+- Flag `--include-schedulers` para `/cee event purge*`: además desregistra schedulers `interval` de eventos purgados.
+
+
+## [1.0.5] - 2026-02-19
+
+### Added
+- Comando `/cee event purge`: permite purgar runtimes activos por chunk/mundo/región, liberando locks y tasks.
+
+## [1.0.4] - 2026-02-19
+
+### Fixed
+- Detección por chunk: `/cee event status|stop|inspect` ahora intenta resolver x/z como bloques y como chunks para evitar falsos negativos.
+
+### Added
+- Config `debug.chunk-lookup` para logs detallados de búsqueda por chunk.
+
 ## [1.0.3] - 2026-02-19
 
 ### Fixed

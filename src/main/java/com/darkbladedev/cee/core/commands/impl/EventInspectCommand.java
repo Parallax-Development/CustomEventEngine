@@ -7,6 +7,7 @@ import com.darkbladedev.cee.core.commands.SubCommand;
 import com.darkbladedev.cee.core.runtime.EventRuntime;
 import com.darkbladedev.cee.util.ChunkUtil;
 import org.bukkit.Location;
+import org.bukkit.World;
 
 import java.util.List;
 import java.util.Map;
@@ -60,7 +61,30 @@ public final class EventInspectCommand implements SubCommand {
     @Override
     public void execute(CommandContext context) {
         Location location = targetResolver.resolveLocation(context);
+        World world = context.argument("mundo", World.class);
+        Integer x = context.argument("x", Integer.class);
+        Integer z = context.argument("z", Integer.class);
+
         Optional<EventRuntime> runtime = services.engine().getRuntime(ChunkUtil.fromLocation(location));
+        if (runtime.isEmpty() && world != null && x != null && z != null) {
+            var byBlocks = ChunkUtil.fromBlockCoords(world.getUID(), x, z);
+            var byChunks = ChunkUtil.fromWorld(world, x, z);
+            if (!byChunks.equals(byBlocks)) {
+                runtime = services.engine().getRuntime(byBlocks);
+                if (runtime.isEmpty()) {
+                    runtime = services.engine().getRuntime(byChunks);
+                }
+            }
+
+            if (services.plugin().getConfig().getBoolean("debug.chunk-lookup", false)) {
+                services.plugin().getLogger().info("CEE chunk-lookup inspect: mundo=" + world.getName()
+                    + " inputX=" + x + " inputZ=" + z
+                    + " blockChunk=" + byBlocks.getX() + "," + byBlocks.getZ()
+                    + " directChunk=" + byChunks.getX() + "," + byChunks.getZ()
+                    + " found=" + runtime.isPresent());
+            }
+        }
+
         if (runtime.isEmpty()) {
             messages.send(context.sender(), "event.inspect.none", Map.of());
             return;

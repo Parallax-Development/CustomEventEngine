@@ -24,6 +24,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("org.mvel:mvel2:2.5.2.Final")
 
+    testImplementation("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -35,7 +36,7 @@ java {
     }
 }
 group = "com.darkbladedev.cee"
-version = "1.0.3"
+version = "1.0.6"
 
 tasks.named<Test>("test") {
     useJUnitPlatform()

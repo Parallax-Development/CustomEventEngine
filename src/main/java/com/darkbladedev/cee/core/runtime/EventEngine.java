@@ -33,7 +33,9 @@ import com.darkbladedev.cee.util.DurationParser;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import org.mvel2.MVEL;
 
@@ -179,6 +182,108 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
 
     public Optional<EventRuntime> getRuntime(ChunkPos chunkPos) {
         return Optional.ofNullable(lockManager.getRuntime(chunkPos));
+    }
+
+    public record PurgeResult(int runtimesPurged, int chunksFreed, int schedulersDisabled) {
+    }
+
+    public PurgeResult purgeWorld(World world) {
+        return purgeWorld(world.getUID(), false);
+    }
+
+    public PurgeResult purgeWorld(UUID worldId) {
+        return purgeWorld(worldId, false);
+    }
+
+    public PurgeResult purgeWorld(UUID worldId, boolean includeSchedulers) {
+        return purgeByChunkPredicate(pos -> pos.getWorldId().equals(worldId), includeSchedulers);
+    }
+
+    public PurgeResult purgeRegionChunks(UUID worldId, int chunkX1, int chunkZ1, int chunkX2, int chunkZ2) {
+        return purgeRegionChunks(worldId, chunkX1, chunkZ1, chunkX2, chunkZ2, false);
+    }
+
+    public PurgeResult purgeRegionChunks(UUID worldId, int chunkX1, int chunkZ1, int chunkX2, int chunkZ2, boolean includeSchedulers) {
+        int minX = Math.min(chunkX1, chunkX2);
+        int maxX = Math.max(chunkX1, chunkX2);
+        int minZ = Math.min(chunkZ1, chunkZ2);
+        int maxZ = Math.max(chunkZ1, chunkZ2);
+        return purgeByChunkPredicate(pos -> pos.getWorldId().equals(worldId)
+            && pos.getX() >= minX && pos.getX() <= maxX
+            && pos.getZ() >= minZ && pos.getZ() <= maxZ, includeSchedulers);
+    }
+
+    public PurgeResult purgeChunk(ChunkPos chunkPos) {
+        return purgeChunk(chunkPos, false);
+    }
+
+    public PurgeResult purgeChunk(ChunkPos chunkPos, boolean includeSchedulers) {
+        EventRuntime runtime = lockManager.getRuntime(chunkPos);
+        if (runtime == null) {
+            return new PurgeResult(0, 0, 0);
+        }
+        int chunksFreed = lockManager.getOccupiedChunks(runtime).size();
+        int schedulersDisabled = 0;
+        if (includeSchedulers) {
+            disableIntervalSchedule(runtime.getEventId());
+            schedulersDisabled = 1;
+        }
+        runtime.setState(EventState.CANCELLED);
+        scheduler.purgeRuntime(runtime);
+        return new PurgeResult(1, chunksFreed, schedulersDisabled);
+    }
+
+    public PurgeResult purgeRuntimes(Collection<EventRuntime> targets) {
+        return purgeRuntimes(targets, false);
+    }
+
+    public PurgeResult purgeRuntimes(Collection<EventRuntime> targets, boolean includeSchedulers) {
+        if (targets == null || targets.isEmpty()) {
+            return new PurgeResult(0, 0, 0);
+        }
+        int chunksFreed = 0;
+        int schedulersDisabled = 0;
+        Set<String> disabled = new HashSet<>();
+        for (EventRuntime runtime : targets) {
+            if (runtime == null) {
+                continue;
+            }
+            chunksFreed += lockManager.getOccupiedChunks(runtime).size();
+            if (includeSchedulers && disabled.add(runtime.getEventId())) {
+                disableIntervalSchedule(runtime.getEventId());
+                schedulersDisabled++;
+            }
+            runtime.setState(EventState.CANCELLED);
+            scheduler.purgeRuntime(runtime);
+        }
+        return new PurgeResult(targets.size(), chunksFreed, schedulersDisabled);
+    }
+
+    private PurgeResult purgeByChunkPredicate(Predicate<ChunkPos> predicate, boolean includeSchedulers) {
+        Map<ChunkPos, EventRuntime> snapshot = lockManager.snapshotOccupied();
+        Set<EventRuntime> runtimesToPurge = new HashSet<>();
+        int chunksFreed = 0;
+        for (Map.Entry<ChunkPos, EventRuntime> entry : snapshot.entrySet()) {
+            if (!predicate.test(entry.getKey())) {
+                continue;
+            }
+            chunksFreed++;
+            runtimesToPurge.add(entry.getValue());
+        }
+        int schedulersDisabled = 0;
+        Set<String> disabled = new HashSet<>();
+        for (EventRuntime runtime : runtimesToPurge) {
+            if (runtime == null) {
+                continue;
+            }
+            if (includeSchedulers && disabled.add(runtime.getEventId())) {
+                disableIntervalSchedule(runtime.getEventId());
+                schedulersDisabled++;
+            }
+            runtime.setState(EventState.CANCELLED);
+            scheduler.purgeRuntime(runtime);
+        }
+        return new PurgeResult(runtimesToPurge.size(), chunksFreed, schedulersDisabled);
     }
 
     public java.util.List<IntervalScheduleRegistry.IntervalStatus> getIntervalStatuses() {

@@ -39,6 +39,11 @@ event.inspect.wait: "{prefix}&7Espera restante: &f{value} ticks"
 event.inspect.participants: "{prefix}&7Participantes: &f{value}"
 event.inspect.locks: "{prefix}&7Chunks bloqueados: &f{value}"
 
+event.purge.none: "{prefix}&eNo hay runtimes activos para purgar."
+event.purge.chunk.success: "{prefix}&aPurga completada. Runtimes: &f{runtimes}&a, Chunks liberados: &f{chunks}&a, Schedulers: &f{schedulers}"
+event.purge.world.success: "{prefix}&aPurga completada en &f{world}&a. Runtimes: &f{runtimes}&a, Chunks liberados: &f{chunks}&a, Schedulers: &f{schedulers}"
+event.purge.region.success: "{prefix}&aPurga completada en &f{world}&a. Runtimes: &f{runtimes}&a, Chunks liberados: &f{chunks}&a, Schedulers: &f{schedulers}"
+
 player.not-found: "{prefix}&cJugador no encontrado: &f{player}"
 player.no-event: "{prefix}&e{player} no tiene evento activo."
 player.event: "{prefix}&e{player} -> &f{event} &7({state})"

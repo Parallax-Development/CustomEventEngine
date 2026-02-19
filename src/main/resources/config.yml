@@ -6,3 +6,5 @@ persistence:
 expansion:
   enabled: true
   interval-ticks: 20
+debug:
+  chunk-lookup: false

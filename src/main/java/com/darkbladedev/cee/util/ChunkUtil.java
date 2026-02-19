@@ -25,6 +25,12 @@ public final class ChunkUtil {
         return new ChunkPos(world.getUID(), x, z);
     }
 
+    public static ChunkPos fromBlockCoords(UUID worldId, int blockX, int blockZ) {
+        int chunkX = Math.floorDiv(blockX, 16);
+        int chunkZ = Math.floorDiv(blockZ, 16);
+        return new ChunkPos(worldId, chunkX, chunkZ);
+    }
+
     public static boolean sameWorld(UUID worldId, World world) {
         return world.getUID().equals(worldId);
     }

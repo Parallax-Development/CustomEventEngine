@@ -56,4 +56,8 @@ public final class ChunkEventLockManager {
         }
         return result;
     }
+
+    public synchronized Map<ChunkPos, EventRuntime> snapshotOccupied() {
+        return new HashMap<>(occupied);
+    }
 }

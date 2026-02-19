@@ -33,6 +33,14 @@ public final class RuntimeScheduler {
         runtimes.remove(runtimeId);
     }
 
+    public void purgeRuntime(EventRuntime runtime) {
+        if (runtime == null) {
+            return;
+        }
+        runtimes.remove(runtime.getRuntimeId());
+        onComplete.accept(runtime);
+    }
+
     public Map<UUID, EventRuntime> getRuntimes() {
         return runtimes;
     }

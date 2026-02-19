@@ -59,12 +59,15 @@ persistence:
 expansion:
   enabled: true
   interval-ticks: 20
+debug:
+  chunk-lookup: false
 ```
 
 ### Problemas comunes
 - **No se cargan eventos**: asegúrate de que el YAML tenga la clave `event`.
 - **Evento no encontrado**: revisa `event.id` o el nombre del archivo.
 - **No se ejecuta**: usa `/cee reload` tras modificar archivos.
+- **El comando dice "no hay evento" pero sí existe**: activá `debug.chunk-lookup: true` y ejecutá `/cee event status <mundo> <x> <z>` para ver el mapeo de coordenadas a chunk en consola.
 
 ## 3) Fundamentos del DSL
 
@@ -171,12 +174,27 @@ Ejemplo:
 - `/cee event stop [mundo x z]` (permiso `cee.admin`)
 - `/cee event status [mundo x z]` (permiso `cee.view`) (incluye eventos pendientes por intervalos)
 - `/cee event inspect [mundo x z]` (permiso `cee.admin`)
+- `/cee event purge chunk [mundo x z]` (permiso `cee.admin`)
+- `/cee event purge world <mundo>` (permiso `cee.admin`)
+- `/cee event purge region <mundo> <x1> <z1> <x2> <z2>` (permiso `cee.admin`)
 - `/cee player info <jugador>` (permiso `cee.view`)
 
 #### Nota: `/cee event status`
 - Si hay un runtime bloqueando el chunk objetivo, se muestra como evento activo.
 - Además, lista los eventos con trigger `interval` registrados y el tiempo restante (ticks) para el próximo disparo.
 - `/cee event stop` desregistra el scheduling del evento detenido si estaba configurado con trigger `interval`.
+
+#### Nota: `/cee event purge`
+- Purga = cancela runtimes activos, elimina sus tasks runtime y libera los chunks bloqueados para reutilización.
+- `purge chunk` acepta `<mundo x z>` y, si no encuentra runtime, intenta resolver `x/z` como coordenadas de bloque y como coordenadas de chunk.
+- `purge region` toma un rectángulo y purga todo runtime que tenga algún chunk dentro. Interpreta `x/z` como coordenadas de bloque (y si no encuentra nada, reintenta como coordenadas de chunk).
+- Flag `--include-schedulers`: además desregistra schedulers de trigger `interval` de los eventos purgados para que no vuelvan a dispararse automáticamente.
+
+Ejemplos:
+- `/cee event purge chunk world 100 200`
+- `/cee event purge world world`
+- `/cee event purge region world 0 0 512 512`
+- `/cee event purge world world --include-schedulers`
 
 ### Elementos del DSL soportados actualmente
 - `trigger.type = interval` con `every` (duración).
