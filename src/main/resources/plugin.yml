@@ -1,0 +1,19 @@
+name: CustomEventEngine
+main: com.darkbladedev.cee.CustomEventEnginePlugin
+version: ${version}
+api-version: '1.21'
+load: POSTWORLD
+author: DarkBladeDev
+softdepend:
+  - PlaceholderAPI
+commands:
+  cee:
+    description: Custom Event Engine
+    usage: /cee
+permissions:
+  cee.admin:
+    default: op
+  cee.view:
+    default: true
+  cee.help:
+    default: true

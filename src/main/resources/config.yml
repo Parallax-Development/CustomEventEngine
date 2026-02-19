@@ -1,0 +1,8 @@
+scheduler:
+  tick-interval: 1
+persistence:
+  enabled: true
+  interval-seconds: 60
+expansion:
+  enabled: true
+  interval-ticks: 20

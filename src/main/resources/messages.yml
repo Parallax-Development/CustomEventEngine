@@ -1,0 +1,42 @@
+prefix: "&8[&6CEE&8] &7"
+
+errors.no-permission: "{prefix}&cNo tienes permiso: &f{permission}"
+errors.player-only: "{prefix}&cEste comando solo puede usarse por jugadores."
+errors.invalid-argument: "{prefix}&c{message}"
+errors.unknown-command: "{prefix}&cSubcomando desconocido: &f{input}"
+errors.internal: "{prefix}&cError interno. {message}"
+
+help.header: "{prefix}&eComandos disponibles:"
+help.entry: "{prefix}&7/cee {command} &8- &f{description}"
+help.detail: "{prefix}&e/{command} &7{description}"
+help.not-found: "{prefix}&cComando no encontrado: &f{input}"
+
+list.empty: "{prefix}&eNo hay eventos cargados."
+list.page: "{prefix}&ePágina {page}/{pages}: &f{events}"
+list.invalid-page: "{prefix}&cPágina inválida. Máx: {max}"
+list.all: "{prefix}&eEventos: &f{events}"
+
+reload.success: "{prefix}&aRecarga completada."
+
+event.start.success: "{prefix}&aEvento iniciado: &f{event}"
+event.start.not-found: "{prefix}&cEvento no encontrado: &f{event}"
+event.start.chunk-occupied: "{prefix}&cYa hay un evento en ese chunk."
+event.start.invalid-target: "{prefix}&cDestino inválido."
+event.start.conditions-failed: "{prefix}&cNo se cumplen las condiciones."
+
+event.stop.none: "{prefix}&eNo hay evento activo en ese chunk."
+event.stop.success: "{prefix}&aEvento detenido: &f{event}"
+
+event.status.none: "{prefix}&eNo hay evento activo en ese chunk."
+event.status.active: "{prefix}&eEvento: &f{event} &7Estado: &f{state}"
+
+event.inspect.none: "{prefix}&eNo hay runtime activo en ese chunk."
+event.inspect.header: "{prefix}&eEvento: &f{event} &7Estado: &f{state}"
+event.inspect.pointer: "{prefix}&7InstructionPointer: &f{value}"
+event.inspect.wait: "{prefix}&7Espera restante: &f{value} ticks"
+event.inspect.participants: "{prefix}&7Participantes: &f{value}"
+event.inspect.locks: "{prefix}&7Chunks bloqueados: &f{value}"
+
+player.not-found: "{prefix}&cJugador no encontrado: &f{player}"
+player.no-event: "{prefix}&e{player} no tiene evento activo."
+player.event: "{prefix}&e{player} -> &f{event} &7({state})"
