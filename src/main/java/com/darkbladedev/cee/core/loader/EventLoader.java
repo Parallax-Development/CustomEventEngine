@@ -17,6 +17,7 @@ import com.darkbladedev.cee.core.definition.EventDefinition;
 import com.darkbladedev.cee.core.definition.ExpansionDefinition;
 import com.darkbladedev.cee.core.definition.FlowDefinition;
 import com.darkbladedev.cee.core.definition.FlowNodeDefinition;
+import com.darkbladedev.cee.core.definition.ConditionLoopNodeDefinition;
 import com.darkbladedev.cee.core.definition.RepeatNodeDefinition;
 import com.darkbladedev.cee.core.definition.ScopeDefinition;
 import com.darkbladedev.cee.core.definition.TriggerDefinition;
@@ -127,6 +128,38 @@ public final class EventLoader {
             nodes.add(new RepeatNodeDefinition(times, everyTicks, flow));
         }
 
+        if (nodeMap.containsKey("loop")) {
+            Object rawLoop = nodeMap.get("loop");
+            Map<?, ?> loopMap = rawLoop instanceof Map<?, ?> map ? map : Map.of("times", rawLoop);
+            Object timesRaw = loopMap.get("times");
+            int times = parseInt(timesRaw != null ? timesRaw : 1, 1);
+
+            Object rawFlow = loopMap.get("flow");
+            Object rawNodes = rawFlow instanceof Map<?, ?> flowMap ? flowMap.get("nodes") : loopMap.get("nodes");
+            if (rawNodes == null) {
+                Object outerFlow = nodeMap.get("flow");
+                rawNodes = outerFlow instanceof Map<?, ?> flowMap ? flowMap.get("nodes") : nodeMap.get("nodes");
+            }
+            FlowDefinition flow = new FlowDefinition(readNodesFromObject(rawNodes));
+
+            nodes.add(new RepeatNodeDefinition(times, 0L, flow));
+        }
+
+        if (nodeMap.containsKey("condition_loop")) {
+            Object rawLoop = nodeMap.get("condition_loop");
+            Map<?, ?> loopMap = rawLoop instanceof Map<?, ?> map ? map : Map.of();
+            Object timesRaw = loopMap.get("times");
+            int times = parseInt(timesRaw != null ? timesRaw : 1, 1);
+            Object exprRaw = loopMap.get("expression");
+            String expression = String.valueOf(exprRaw != null ? exprRaw : "true").trim();
+
+            Object rawFlow = loopMap.get("flow");
+            Object rawNodes = rawFlow instanceof Map<?, ?> flowMap ? flowMap.get("nodes") : loopMap.get("nodes");
+            FlowDefinition flow = new FlowDefinition(readNodesFromObject(rawNodes));
+
+            nodes.add(new ConditionLoopNodeDefinition(times, expression, flow));
+        }
+
         if (nodeMap.containsKey("async")) {
             Object rawAsync = nodeMap.get("async");
             Object rawBranches = rawAsync;
@@ -156,7 +189,7 @@ public final class EventLoader {
         }
         for (Map.Entry<?, ?> entry : nodeMap.entrySet()) {
             String key = String.valueOf(entry.getKey());
-            if (key.equals("action") || key.equals("delay") || key.equals("config") || key.equals("repeat") || key.equals("async")) {
+            if (key.equals("action") || key.equals("delay") || key.equals("config") || key.equals("repeat") || key.equals("loop") || key.equals("condition_loop") || key.equals("async")) {
                 continue;
             }
             config.put(key, entry.getValue());

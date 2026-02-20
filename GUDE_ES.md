@@ -199,14 +199,37 @@ Ejemplos:
 ### Elementos del DSL soportados actualmente
 - `trigger.type = interval` con `every` (duración).
 - `trigger.type = command` con `command` (opcional), `permission` (opcional) y `cancel` (opcional).
+- Triggers basados en eventos Bukkit:
+  - `trigger.type = on_player_join`
+  - `trigger.type = on_player_death_inside`
+  - `trigger.type = on_player_damage_inside`
+  - `trigger.type = on_player_break_block_inside`
+  - `trigger.type = on_player_place_block_inside`
+  - `trigger.type = on_chunk_enter`
+  - `trigger.type = on_chunk_exit`
+  - `trigger.type = on_weather_change`
+  - `trigger.type = on_thunder_start`
+  - `trigger.type = on_world_difficulty_change`
+  - `trigger.type = on_entity_death_inside`
+  - `trigger.type = on_mob_spawn_inside`
 - `conditions.<key>.type = players_online` con `min`.
 - `conditions.<key>.type = expression` con `expression`.
 - `conditions.<key>.type = world_time` con `min` y `max`.
 - `conditions.<key>.type = random_chance` con `chance`.
 - `conditions.<key>.type = variable_equals` con `key` y `value`.
+- `conditions.<key>.type = is_day` (sin parámetros).
+- `conditions.<key>.type = is_night` (sin parámetros).
+- `conditions.<key>.type = is_raining` (sin parámetros).
+- `conditions.<key>.type = is_thundering` (sin parámetros).
+- `conditions.<key>.type = participants_count_gt` con `value`.
+- `conditions.<key>.type = participants_count_lt` con `value`.
+- `conditions.<key>.type = any_participant_has_permission` con `permission`.
+- `conditions.<key>.type = world_difficulty_is` con `difficulty`.
 - `event.variables` para variables `local`/`global` con inicialización.
-- `flow.nodes[].action = spawn_lightning`, `broadcast`, `clear_weather`, `set_time`, `send_participants`, `set_variable`.
+- `flow.nodes[].action = spawn_lightning`, `broadcast`, `clear_weather`, `set_time`, `send_participants`, `send_message`, `set_variable`, `log`, `execute_console_command`, `execute_player_command`.
 - `flow.nodes[].delay = <duración>`.
+- `flow.nodes[].loop = <repeticiones>` para repetir un bloque N veces.
+- `flow.nodes[].condition_loop` para repetir un bloque N veces si una expresión se cumple por iteración.
 - `flow.nodes[].config` para parámetros de la acción.
 - `scope.type = chunk_radius` con `radius`.
 - `target.strategy = random_loaded_chunk`.
@@ -221,8 +244,12 @@ Los parámetros de las acciones se pueden definir de dos formas equivalentes:
 | `broadcast` | Enviar mensaje a todos los jugadores del servidor. | `message` (string) | `- action: "broadcast"\n  message: "&aHola"` |
 | `clear_weather` | Quitar lluvia/tormenta y reiniciar duraciones climáticas del mundo. | (sin parámetros) | `- action: "clear_weather"` |
 | `send_participants` | Enviar mensaje solo a los participantes del evento. | `message` (string) | `- action: "send_participants"\n  message: "&eEvento activo"` |
+| `send_message` | Alias de `send_participants`. | `message` (string) | `- action: "send_message"\n  message: "&eEvento activo"` |
 | `set_time` | Ajustar el tiempo del mundo. | `time` (ticks/duración o `${variable}` o `= expr`) | `- action: "set_time"\n  time: "13000t"` |
 | `set_variable` | Guardar una variable en el contexto del evento. | `key` (string), `value` (any, soporta `${var}` y `= expr`) | `- action: "set_variable"\n  key: "fase"\n  value: "inicio"` |
+| `log` | Escribir mensaje en logs del servidor. | `message` (string, soporta variables) | `- action: "log"\n  message: "Fase: {fase}"` |
+| `execute_console_command` | Ejecutar comando como consola. | `command` (string, soporta variables) | `- action: "execute_console_command"\n  command: "say Hola"` |
+| `execute_player_command` | Ejecutar comando como cada participante (online). | `command` (string, soporta variables) | `- action: "execute_player_command"\n  command: "msg @s Hola"` |
 | `spawn_lightning` | Spawnear un rayo en la ubicación del evento. | (sin parámetros) | `- action: "spawn_lightning"` |
 
 ### Tabla de conditions
@@ -233,6 +260,14 @@ Los parámetros de las acciones se pueden definir de dos formas equivalentes:
 | `random_chance` | Permitir ejecución con una probabilidad aleatoria. | `chance` (number). Acepta `0.0–1.0` o porcentaje (`25` = 25%). | `type: "random_chance"\nchance: 25` |
 | `variable_equals` | Comparar una variable del contexto con un valor esperado. | `key` (string), `value` (string) | `type: "variable_equals"\nkey: "fase"\nvalue: "inicio"` |
 | `world_time` | Validar que el tiempo del mundo esté dentro de un rango (ticks 0–23999). Soporta rangos que cruzan 24000. | `min` (ticks), `max` (ticks) | `type: "world_time"\nmin: "12000t"\nmax: "23000t"` |
+| `is_day` | Verificar si el mundo está en día. | (sin parámetros) | `type: "is_day"` |
+| `is_night` | Verificar si el mundo está en noche. | (sin parámetros) | `type: "is_night"` |
+| `is_raining` | Verificar si está lloviendo. | (sin parámetros) | `type: "is_raining"` |
+| `is_thundering` | Verificar si hay tormenta eléctrica. | (sin parámetros) | `type: "is_thundering"` |
+| `participants_count_gt` | Verificar si el evento tiene más participantes que un valor. | `value` (int) | `type: "participants_count_gt"\nvalue: 2` |
+| `participants_count_lt` | Verificar si el evento tiene menos participantes que un valor. | `value` (int) | `type: "participants_count_lt"\nvalue: 10` |
+| `any_participant_has_permission` | Verificar si algún participante tiene un permiso. | `permission` (string) | `type: "any_participant_has_permission"\npermission: "cee.admin"` |
+| `world_difficulty_is` | Verificar la dificultad actual del mundo. | `difficulty` (string) | `type: "world_difficulty_is"\ndifficulty: "HARD"` |
 
 ### Triggers
 
@@ -264,6 +299,63 @@ Ejemplo (default del plugin para este evento):
 trigger:
   type: "command"
 ```
+
+#### Triggers basados en Bukkit
+Estos triggers activan el evento cuando ocurre un evento Bukkit. Se pueden usar sin parámetros adicionales:
+
+```yaml
+trigger:
+  type: "on_player_join"
+```
+
+Tipos disponibles:
+- `on_player_join`
+- `on_player_death_inside`
+- `on_player_damage_inside`
+- `on_player_break_block_inside`
+- `on_player_place_block_inside`
+- `on_chunk_enter`
+- `on_chunk_exit`
+- `on_weather_change`
+- `on_thunder_start`
+- `on_world_difficulty_change`
+- `on_entity_death_inside`
+- `on_mob_spawn_inside`
+
+Notas:
+- `on_world_difficulty_change` es un trigger por polling (interno) y acepta `every` (duración). Default: `20t`.
+
+### Loops en flow
+
+#### Nodo `loop`
+Repite una subsecuencia un número fijo de veces.
+
+```yaml
+flow:
+  nodes:
+    - loop: 3
+      nodes:
+        - action: "log"
+          message: "Iteración"
+```
+
+#### Nodo `condition_loop`
+Repite una subsecuencia un máximo de N veces, pero antes de cada iteración evalúa una expresión MVEL.
+Si la expresión es `false`, el loop se corta y se continúa con el siguiente nodo del flow.
+
+```yaml
+flow:
+  nodes:
+    - action: "set_variable"
+      key: "contador"
+      value: 0
+    - condition_loop:
+        times: 10
+        expression: "contador < 3"
+        nodes:
+          - action: "set_variable"
+            key: "contador"
+            value: "= (contador == null ? 0 : contador) + 1"
 
 ### Limitaciones actuales
 - `chunk_load_rules` y `chunk_unload_rules` se parsean, pero no se aplican aún en runtime.
@@ -421,12 +513,24 @@ Acciones nuevas:
 - `clear_weather`: limpia lluvia y tormenta.
 - `set_time`: ajusta el tiempo del mundo.
 - `send_participants`: envía mensaje a participantes.
+- `send_message`: alias de `send_participants`.
 - `set_variable`: guarda una variable en el contexto.
+- `log`: escribe mensaje en logs del servidor.
+- `execute_console_command`: ejecuta comando como consola.
+- `execute_player_command`: ejecuta comando como participantes.
 
 Condiciones nuevas:
 - `world_time`: valida rango de tiempo del mundo.
 - `random_chance`: valida probabilidad aleatoria.
 - `variable_equals`: compara una variable con un valor.
+- `is_day`: valida día.
+- `is_night`: valida noche.
+- `is_raining`: valida lluvia.
+- `is_thundering`: valida tormenta.
+- `participants_count_gt`: compara cantidad de participantes.
+- `participants_count_lt`: compara cantidad de participantes.
+- `any_participant_has_permission`: valida permisos en participantes.
+- `world_difficulty_is`: valida dificultad del mundo.
 
 Duraciones comunes:
 - `10t` = 10 ticks
@@ -435,11 +539,11 @@ Duraciones comunes:
 - `1m` = 1200 ticks
 
 ## 13) Apéndices
-- Compatibilidad: Paper/Spigot 1.21+, Java 21.
+- Compatibilidad: Paper/Spigot 1.20+, Java 21.
 - No hay migraciones documentadas en el repositorio actual.
 - Librerías: MVEL para condiciones `expression`.
 
-## 14) Ejemplos rápidos (nuevos types)
+## 14) Ejemplos rápidos
 ```yaml
 flow:
   nodes:

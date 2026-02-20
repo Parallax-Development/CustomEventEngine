@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.8] - 2026-02-19
+
+### Added
+- Nodo `loop` en flow: repite una subsecuencia N veces.
+- Nodo `condition_loop` en flow: repite una subsecuencia N veces mientras una expresión MVEL sea true en cada iteración.
+
+## [1.0.7] - 2026-02-19
+
+### Added
+- Pack compatible inicial del DSL: nuevos triggers, conditions y actions orientados a eventos Bukkit y participantes.
+
 ## [1.0.6] - 2026-02-19
 
 ### Added

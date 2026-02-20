@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import com.darkbladedev.cee.api.Action;
 import com.darkbladedev.cee.core.definition.ActionNodeDefinition;
+import com.darkbladedev.cee.core.definition.ConditionLoopNodeDefinition;
 import com.darkbladedev.cee.core.definition.DelayNodeDefinition;
 import com.darkbladedev.cee.core.definition.FlowDefinition;
 import com.darkbladedev.cee.core.definition.FlowNodeDefinition;
@@ -37,6 +38,17 @@ public final class FlowCompiler {
                 instructions.add(new LoopStartInstruction(repeatNode.getTimes()));
                 compileNodes(repeatNode.getFlow().getNodes(), instructions);
                 instructions.add(new LoopEndInstruction(loopStartIndex, repeatNode.getEveryTicks()));
+            } else if (node instanceof ConditionLoopNodeDefinition conditionLoopNode) {
+                List<Instruction> body = new ArrayList<>();
+                compileNodes(conditionLoopNode.getFlow().getNodes(), body);
+
+                int loopStartIndex = instructions.size();
+                int afterLoopIndex = loopStartIndex + 3 + body.size();
+
+                instructions.add(new LoopStartInstruction(conditionLoopNode.getTimes()));
+                instructions.add(new ConditionLoopCheckInstruction(conditionLoopNode.getExpression(), afterLoopIndex));
+                instructions.addAll(body);
+                instructions.add(new LoopEndInstruction(loopStartIndex, 0L));
             } else if (node instanceof AsyncNodeDefinition asyncNode) {
                 List<ExecutionPlan> branches = new ArrayList<>();
                 for (FlowDefinition branch : asyncNode.getBranches()) {

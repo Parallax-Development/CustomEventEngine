@@ -20,7 +20,6 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.6")
 
-    implementation("dev.jorel:commandapi-paper-shade:11.1.0")
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("org.mvel:mvel2:2.5.2.Final")
 
@@ -36,7 +35,7 @@ java {
     }
 }
 group = "com.darkbladedev.cee"
-version = "1.0.6"
+version = "1.0.8"
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
@@ -52,6 +51,4 @@ tasks.shadowJar {
     archiveBaseName.set("CustomEventEngine")
     archiveVersion.set(project.version.toString())
     archiveClassifier.set("")
-
-    relocate("dev.jorel.commandapi", "com.darkbladedev.cee.libs.commandapi")
 }

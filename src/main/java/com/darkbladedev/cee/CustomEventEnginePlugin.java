@@ -29,10 +29,21 @@ import com.darkbladedev.cee.core.commands.impl.ReloadCommand;
 import com.darkbladedev.cee.core.commands.impl.ReloadSilentCommand;
 import com.darkbladedev.cee.core.commands.impl.TargetResolver;
 import com.darkbladedev.cee.core.actions.SpawnLightningAction;
+import com.darkbladedev.cee.core.actions.ExecuteConsoleCommandAction;
+import com.darkbladedev.cee.core.actions.ExecuteParticipantsCommandAction;
+import com.darkbladedev.cee.core.actions.LogAction;
 import com.darkbladedev.cee.core.conditions.MvelCondition;
 import com.darkbladedev.cee.core.conditions.PlayersOnlineCondition;
 import com.darkbladedev.cee.core.conditions.RandomChanceCondition;
+import com.darkbladedev.cee.core.conditions.AnyParticipantHasPermissionCondition;
+import com.darkbladedev.cee.core.conditions.IsDayCondition;
+import com.darkbladedev.cee.core.conditions.IsNightCondition;
+import com.darkbladedev.cee.core.conditions.IsRainingCondition;
+import com.darkbladedev.cee.core.conditions.IsThunderingCondition;
+import com.darkbladedev.cee.core.conditions.ParticipantsCountGreaterCondition;
+import com.darkbladedev.cee.core.conditions.ParticipantsCountLessCondition;
 import com.darkbladedev.cee.core.conditions.VariableEqualsCondition;
+import com.darkbladedev.cee.core.conditions.WorldDifficultyIsCondition;
 import com.darkbladedev.cee.core.conditions.WorldTimeRangeCondition;
 import com.darkbladedev.cee.core.listener.ParticipantListener;
 import com.darkbladedev.cee.core.persistence.PersistenceManager;
@@ -40,7 +51,19 @@ import com.darkbladedev.cee.core.runtime.ChunkSelectionStrategies;
 import com.darkbladedev.cee.core.runtime.EventEngine;
 import com.darkbladedev.cee.core.runtime.ScopeFactories;
 import com.darkbladedev.cee.core.trigger.CommandTrigger;
+import com.darkbladedev.cee.core.trigger.EntityDeathTrigger;
 import com.darkbladedev.cee.util.DurationParser;
+import com.darkbladedev.cee.core.trigger.MobSpawnTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerBlockBreakTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerBlockPlaceTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerChunkEnterTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerChunkExitTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerDamageTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerDeathTrigger;
+import com.darkbladedev.cee.core.trigger.PlayerJoinTrigger;
+import com.darkbladedev.cee.core.trigger.ThunderStartTrigger;
+import com.darkbladedev.cee.core.trigger.WeatherChangeTrigger;
+import com.darkbladedev.cee.core.trigger.WorldDifficultyPollingTrigger;
 
 import java.io.File;
 import java.util.List;
@@ -115,15 +138,51 @@ public final class CustomEventEnginePlugin extends JavaPlugin {
         engine.registerAction("clear_weather", config -> new ClearWeatherAction());
         engine.registerAction("set_time", config -> new SetTimeAction(config.getOrDefault("time", 1000)));
         engine.registerAction("send_participants", config -> new SendParticipantsAction(String.valueOf(config.getOrDefault("message", ""))));
+        engine.registerAction("send_message", config -> new SendParticipantsAction(String.valueOf(config.getOrDefault("message", ""))));
         engine.registerAction("set_variable", config -> new SetVariableAction(String.valueOf(config.getOrDefault("key", "")), config.get("value")));
+        engine.registerAction("log", config -> new LogAction(String.valueOf(config.getOrDefault("message", ""))));
+        engine.registerAction("execute_console_command", config -> new ExecuteConsoleCommandAction(String.valueOf(config.getOrDefault("command", ""))));
+        engine.registerAction("execute_player_command", config -> new ExecuteParticipantsCommandAction(String.valueOf(config.getOrDefault("command", ""))));
         engine.registerCondition("players_online", config -> new PlayersOnlineCondition(parseInt(config.getOrDefault("min", 1))));
         engine.registerCondition("expression", config -> new MvelCondition(String.valueOf(config.getOrDefault("expression", "true"))));
         engine.registerCondition("world_time", config -> new WorldTimeRangeCondition(parseTicks(config.getOrDefault("min", 0), 0), parseTicks(config.getOrDefault("max", 23999), 23999)));
         engine.registerCondition("random_chance", config -> new RandomChanceCondition(parseDouble(config.getOrDefault("chance", 1.0), 1.0)));
         engine.registerCondition("variable_equals", config -> new VariableEqualsCondition(String.valueOf(config.getOrDefault("key", "")), String.valueOf(config.getOrDefault("value", ""))));
+        engine.registerCondition("is_day", config -> new IsDayCondition());
+        engine.registerCondition("is_night", config -> new IsNightCondition());
+        engine.registerCondition("is_raining", config -> new IsRainingCondition());
+        engine.registerCondition("is_thundering", config -> new IsThunderingCondition());
+        engine.registerCondition("participants_count_gt", config -> new ParticipantsCountGreaterCondition(parseInt(config.getOrDefault("value", 0))));
+        engine.registerCondition("participants_count_lt", config -> new ParticipantsCountLessCondition(parseInt(config.getOrDefault("value", 0))));
+        engine.registerCondition("any_participant_has_permission", config -> new AnyParticipantHasPermissionCondition(String.valueOf(config.getOrDefault("permission", "")).trim()));
+        engine.registerCondition("world_difficulty_is", config -> new WorldDifficultyIsCondition(parseDifficulty(config.getOrDefault("difficulty", "NORMAL"))));
         engine.registerTrigger("command", (config, eventId) -> new CommandTrigger(this, eventId, config, engine));
+        engine.registerTrigger("on_player_join", (config, eventId) -> new PlayerJoinTrigger(this, eventId, engine));
+        engine.registerTrigger("on_player_death_inside", (config, eventId) -> new PlayerDeathTrigger(this, eventId, engine));
+        engine.registerTrigger("on_player_damage_inside", (config, eventId) -> new PlayerDamageTrigger(this, eventId, engine));
+        engine.registerTrigger("on_player_break_block_inside", (config, eventId) -> new PlayerBlockBreakTrigger(this, eventId, engine));
+        engine.registerTrigger("on_player_place_block_inside", (config, eventId) -> new PlayerBlockPlaceTrigger(this, eventId, engine));
+        engine.registerTrigger("on_chunk_enter", (config, eventId) -> new PlayerChunkEnterTrigger(this, eventId, engine));
+        engine.registerTrigger("on_chunk_exit", (config, eventId) -> new PlayerChunkExitTrigger(this, eventId, engine));
+        engine.registerTrigger("on_weather_change", (config, eventId) -> new WeatherChangeTrigger(this, eventId, engine));
+        engine.registerTrigger("on_thunder_start", (config, eventId) -> new ThunderStartTrigger(this, eventId, engine));
+        engine.registerTrigger("on_world_difficulty_change", (config, eventId) -> new WorldDifficultyPollingTrigger(this, eventId, config, engine, engine.getScheduler()));
+        engine.registerTrigger("on_entity_death_inside", (config, eventId) -> new EntityDeathTrigger(this, eventId, engine));
+        engine.registerTrigger("on_mob_spawn_inside", (config, eventId) -> new MobSpawnTrigger(this, eventId, false, engine));
         engine.registerScope("chunk_radius", ScopeFactories.chunkRadius());
         engine.registerChunkStrategy("random_loaded_chunk", ChunkSelectionStrategies.randomLoadedChunk());
+    }
+
+    private org.bukkit.Difficulty parseDifficulty(Object value) {
+        String raw = String.valueOf(value).trim();
+        if (raw.isBlank()) {
+            return org.bukkit.Difficulty.NORMAL;
+        }
+        try {
+            return org.bukkit.Difficulty.valueOf(raw.toUpperCase());
+        } catch (Exception ignored) {
+            return org.bukkit.Difficulty.NORMAL;
+        }
     }
 
     private int parseInt(Object value) {
