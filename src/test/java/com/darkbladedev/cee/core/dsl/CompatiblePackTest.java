@@ -14,7 +14,6 @@ import com.darkbladedev.cee.core.conditions.ParticipantsCountLessCondition;
 import com.darkbladedev.cee.core.conditions.WorldDifficultyIsCondition;
 import org.bukkit.Difficulty;
 import org.bukkit.Server;
-import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.World;
