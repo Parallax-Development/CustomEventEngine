@@ -42,7 +42,7 @@ public final class EventContextImpl implements EventContext {
         this.globalVariables = Objects.requireNonNull(globalVariables, "globalVariables");
         this.variableDefinitions = Objects.requireNonNull(variableDefinitions, "variableDefinitions");
         this.globalVariableDefinitions = Objects.requireNonNull(globalVariableDefinitions, "globalVariableDefinitions");
-        this.variables = new VariableMapView(localVariables, this.globalVariables, this.variableDefinitions, this.globalVariableDefinitions);
+        this.variables = new VariableMapView(localVariables, this.globalVariables, this.variableDefinitions);
     }
 
     @Override
@@ -108,16 +108,13 @@ public final class EventContextImpl implements EventContext {
         private final Map<String, Object> local;
         private final Map<String, Object> global;
         private final Map<String, VariableDefinition> defs;
-        private final Map<String, VariableDefinition> globalDefs;
 
         private VariableMapView(Map<String, Object> local,
                                 Map<String, Object> global,
-                                Map<String, VariableDefinition> defs,
-                                Map<String, VariableDefinition> globalDefs) {
+                                Map<String, VariableDefinition> defs) {
             this.local = local;
             this.global = global;
             this.defs = defs;
-            this.globalDefs = globalDefs;
         }
 
         @Override
@@ -144,7 +141,7 @@ public final class EventContextImpl implements EventContext {
             if (key == null || key.isBlank()) {
                 return null;
             }
-            if (isGlobal(key)) {
+            if (isGlobalWrite(key)) {
                 return global.put(key, value);
             }
             return local.put(key, value);
@@ -155,7 +152,7 @@ public final class EventContextImpl implements EventContext {
             if (!(key instanceof String name)) {
                 return null;
             }
-            if (isGlobal(name)) {
+            if (isGlobalWrite(name)) {
                 return global.remove(name);
             }
             return local.remove(name);
@@ -173,12 +170,9 @@ public final class EventContextImpl implements EventContext {
             return merged.entrySet();
         }
 
-        private boolean isGlobal(String name) {
+        private boolean isGlobalWrite(String name) {
             VariableDefinition def = defs.get(name);
-            if (def != null) {
-                return def.getScope() == VariableScope.GLOBAL;
-            }
-            return globalDefs.containsKey(name);
+            return def != null && def.getScope() == VariableScope.GLOBAL;
         }
     }
 }

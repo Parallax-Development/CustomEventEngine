@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.9] - 2026-02-20
+
+### Fixed
+- Variables: la escritura a variables globales ahora requiere que la variable esté declarada como `scope: global` en el evento. Esto evita que eventos “ensucien” globales por accidente y que valores persistan entre ejecuciones.
+
 ## [1.0.8] - 2026-02-19
 
 ### Added

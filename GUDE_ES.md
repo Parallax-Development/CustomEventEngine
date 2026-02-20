@@ -123,6 +123,7 @@ Reglas:
 - El nombre debe ser `A-Za-z_` seguido de `A-Za-z0-9_`.
 - Si `initial` no existe, se usa un default por tipo (ej: `0`, `false`, `[]`, `{}`, `""`).
 - Si una variable es `global`, el engine junta las definiciones de todos los eventos. Si dos eventos declaran la misma variable global con distinto `type`, se considera error.
+- Escritura de globales: para modificar una variable `global` con `set_variable`, el evento debe declararla explícitamente con `scope: global`. Si no está declarada en el evento, `set_variable` escribirá una variable local (aunque exista una global con el mismo nombre).
 
 Inicialización avanzada:
 - Referencia: `"${otra_variable}"` copia el valor de otra variable.
