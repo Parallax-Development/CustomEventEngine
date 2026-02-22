@@ -1,6 +1,15 @@
 # Changelog
 
+## [1.0.10] - 2026-02-21
+
+### Added
+- Sistema de tasks en el DSL: definición (`event.tasks` / `tasks/*.yml`), invocación (`task`), composición y retorno (`return`), con validación en carga.
+- Comando `/cee tasks export`: exporta catálogo de tasks a `task-catalog.yml`.
+
 ## [1.0.9] - 2026-02-20
+
+### Added
+- Wiki: documentación completa y profesional en `wiki/CustomEventEngine.wiki` (DSL, comandos, configuración, API, ejemplos y plantillas).
 
 ### Fixed
 - Variables: la escritura a variables globales ahora requiere que la variable esté declarada como `scope: global` en el evento. Esto evita que eventos “ensucien” globales por accidente y que valores persistan entre ejecuciones.

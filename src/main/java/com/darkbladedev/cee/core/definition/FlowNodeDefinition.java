@@ -1,4 +1,4 @@
 package com.darkbladedev.cee.core.definition;
 
-public sealed interface FlowNodeDefinition permits ActionNodeDefinition, DelayNodeDefinition, RepeatNodeDefinition, ConditionLoopNodeDefinition, AsyncNodeDefinition {
+public sealed interface FlowNodeDefinition permits ActionNodeDefinition, DelayNodeDefinition, RepeatNodeDefinition, ConditionLoopNodeDefinition, AsyncNodeDefinition, TaskCallNodeDefinition, TaskReturnNodeDefinition {
 }

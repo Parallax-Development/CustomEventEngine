@@ -17,6 +17,7 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,8 +41,9 @@ public class LoopNodesTest {
             """);
 
         EventContextImpl ctx = new EventContextImpl(serverProxy(), worldProxy());
-        ExecutionPlan plan = new FlowCompiler(this::buildAction).compile(def.getFlow());
-        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), def.getId(), plan, ctx, new ChunkPos(UUID.randomUUID(), 0, 0));
+        FlowCompiler compiler = new FlowCompiler(this::buildAction);
+        ExecutionPlan plan = compiler.compile(def.getFlow());
+        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), def.getId(), plan, compiler, ctx, new ChunkPos(UUID.randomUUID(), 0, 0), Map.of());
         runtime.tick();
 
         Object counter = ctx.getVariable("counter");
@@ -68,8 +70,9 @@ public class LoopNodesTest {
             """);
 
         EventContextImpl ctx = new EventContextImpl(serverProxy(), worldProxy());
-        ExecutionPlan plan = new FlowCompiler(this::buildAction).compile(def.getFlow());
-        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), def.getId(), plan, ctx, new ChunkPos(UUID.randomUUID(), 0, 0));
+        FlowCompiler compiler = new FlowCompiler(this::buildAction);
+        ExecutionPlan plan = compiler.compile(def.getFlow());
+        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), def.getId(), plan, compiler, ctx, new ChunkPos(UUID.randomUUID(), 0, 0), Map.of());
         runtime.tick();
 
         Object counter = ctx.getVariable("counter");

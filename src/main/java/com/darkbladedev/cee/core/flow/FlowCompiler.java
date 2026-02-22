@@ -13,6 +13,8 @@ import com.darkbladedev.cee.core.definition.FlowDefinition;
 import com.darkbladedev.cee.core.definition.FlowNodeDefinition;
 import com.darkbladedev.cee.core.definition.AsyncNodeDefinition;
 import com.darkbladedev.cee.core.definition.RepeatNodeDefinition;
+import com.darkbladedev.cee.core.definition.TaskCallNodeDefinition;
+import com.darkbladedev.cee.core.definition.TaskReturnNodeDefinition;
 
 public final class FlowCompiler {
     private final Function<ActionNodeDefinition, Action> actionFactory;
@@ -55,6 +57,16 @@ public final class FlowCompiler {
                     branches.add(compile(branch));
                 }
                 instructions.add(new AsyncInstruction(branches));
+            } else if (node instanceof TaskCallNodeDefinition taskCallNode) {
+                instructions.add(new TaskCallInstruction(
+                    taskCallNode.getTaskName(),
+                    taskCallNode.getArguments(),
+                    taskCallNode.getInto(),
+                    taskCallNode.getOverride(),
+                    taskCallNode.getMaxDepth()
+                ));
+            } else if (node instanceof TaskReturnNodeDefinition taskReturnNode) {
+                instructions.add(new TaskReturnInstruction(taskReturnNode.getValues()));
             }
         }
     }

@@ -20,6 +20,11 @@ import com.darkbladedev.cee.core.definition.FlowNodeDefinition;
 import com.darkbladedev.cee.core.definition.ConditionLoopNodeDefinition;
 import com.darkbladedev.cee.core.definition.RepeatNodeDefinition;
 import com.darkbladedev.cee.core.definition.ScopeDefinition;
+import com.darkbladedev.cee.core.definition.TaskCallNodeDefinition;
+import com.darkbladedev.cee.core.definition.TaskDefinition;
+import com.darkbladedev.cee.core.definition.TaskParameterDefinition;
+import com.darkbladedev.cee.core.definition.TaskReturnDefinition;
+import com.darkbladedev.cee.core.definition.TaskReturnNodeDefinition;
 import com.darkbladedev.cee.core.definition.TriggerDefinition;
 import com.darkbladedev.cee.core.definition.VariableDefinition;
 import com.darkbladedev.cee.core.definition.VariableScope;
@@ -59,7 +64,8 @@ public final class EventLoader {
             ChunkLoadRules chunkLoadRules = ChunkLoadRules.valueOf(readStringOrFallback(eventSection, "chunk_load_rules", List.of("chunk_load_policy", "chunk_policy"), "REJECT").toUpperCase());
             ChunkUnloadRules chunkUnloadRules = ChunkUnloadRules.valueOf(readStringOrFallback(eventSection, "chunk_unload_rules", List.of("chunk_unload_policy"), "PAUSE").toUpperCase());
             Map<String, VariableDefinition> variables = readVariables(eventSection.getConfigurationSection("variables"));
-            definitions.add(new EventDefinition(id, trigger, conditions, flow, scope, expansion, target, chunkLoadRules, chunkUnloadRules, variables));
+            Map<String, TaskDefinition> tasks = readTasks(eventSection.getConfigurationSection("tasks"), "event:" + id);
+            definitions.add(new EventDefinition(id, trigger, conditions, flow, scope, expansion, target, chunkLoadRules, chunkUnloadRules, variables, tasks));
         }
         return definitions;
     }
@@ -175,6 +181,58 @@ public final class EventLoader {
             nodes.add(new AsyncNodeDefinition(branches));
         }
 
+        if (nodeMap.containsKey("task")) {
+            Object rawTask = nodeMap.get("task");
+            String name;
+            Map<String, Object> args = new HashMap<>();
+            Map<String, String> into = new HashMap<>();
+            TaskDefinition override = null;
+            int maxDepth = 64;
+
+            if (rawTask instanceof Map<?, ?> taskMap) {
+                Object rawName = taskMap.get("name");
+                name = rawName == null ? "" : String.valueOf(rawName);
+                Object rawWith = taskMap.get("with");
+                if (rawWith instanceof Map<?, ?> withMap) {
+                    for (Map.Entry<?, ?> entry : withMap.entrySet()) {
+                        args.put(String.valueOf(entry.getKey()), entry.getValue());
+                    }
+                }
+                Object rawInto = taskMap.get("into");
+                if (rawInto instanceof Map<?, ?> intoMap) {
+                    for (Map.Entry<?, ?> entry : intoMap.entrySet()) {
+                        into.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+                    }
+                }
+                Object rawOverride = taskMap.get("override");
+                if (rawOverride instanceof Map<?, ?> overrideMap) {
+                    override = readInlineTaskDefinition(overrideMap, "inline");
+                }
+                Object rawMaxDepth = taskMap.get("max_depth");
+                if (rawMaxDepth != null) {
+                    maxDepth = parseInt(rawMaxDepth, 64);
+                }
+            } else {
+                name = rawTask == null ? "" : String.valueOf(rawTask);
+            }
+
+            nodes.add(new TaskCallNodeDefinition(name, args, into, override, maxDepth));
+        }
+
+        if (nodeMap.containsKey("return")) {
+            Object rawReturn = nodeMap.get("return");
+            Map<String, Object> values = new HashMap<>();
+            if (rawReturn instanceof Map<?, ?> map) {
+                Object rawValues = map.containsKey("values") ? map.get("values") : map;
+                if (rawValues instanceof Map<?, ?> valuesMap) {
+                    for (Map.Entry<?, ?> entry : valuesMap.entrySet()) {
+                        values.put(String.valueOf(entry.getKey()), entry.getValue());
+                    }
+                }
+            }
+            nodes.add(new TaskReturnNodeDefinition(values));
+        }
+
         return nodes;
     }
 
@@ -189,12 +247,135 @@ public final class EventLoader {
         }
         for (Map.Entry<?, ?> entry : nodeMap.entrySet()) {
             String key = String.valueOf(entry.getKey());
-            if (key.equals("action") || key.equals("delay") || key.equals("config") || key.equals("repeat") || key.equals("loop") || key.equals("condition_loop") || key.equals("async")) {
+            if (key.equals("action") || key.equals("delay") || key.equals("config") || key.equals("repeat") || key.equals("loop") || key.equals("condition_loop") || key.equals("async") || key.equals("task") || key.equals("return")) {
                 continue;
             }
             config.put(key, entry.getValue());
         }
         return config;
+    }
+
+    private Map<String, TaskDefinition> readTasks(ConfigurationSection section, String source) {
+        Map<String, TaskDefinition> result = new java.util.LinkedHashMap<>();
+        if (section == null) {
+            return result;
+        }
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection taskSection = section.getConfigurationSection(key);
+            if (taskSection == null) {
+                continue;
+            }
+            TaskDefinition def = readTaskDefinition(key, taskSection, source);
+            result.put(def.getName(), def);
+        }
+        return result;
+    }
+
+    private TaskDefinition readTaskDefinition(String name, ConfigurationSection section, String source) {
+        String description = String.valueOf(section.getString("description", "")).trim();
+        Map<String, TaskParameterDefinition> params = readTaskParameters(section.getConfigurationSection("params"));
+        Map<String, TaskReturnDefinition> returns = readTaskReturns(section.getConfigurationSection("returns"));
+
+        ConfigurationSection flowSection = section.getConfigurationSection("flow");
+        List<Map<?, ?>> nodeMaps = flowSection != null ? flowSection.getMapList("nodes") : section.getMapList("nodes");
+        FlowDefinition flow = new FlowDefinition(readNodes(nodeMaps));
+
+        return new TaskDefinition(name, description, params, returns, flow, source);
+    }
+
+    private TaskDefinition readInlineTaskDefinition(Map<?, ?> rawTask, String source) {
+        Object nameRaw = rawTask.get("name");
+        if (nameRaw == null) {
+            nameRaw = "override";
+        }
+        String name = String.valueOf(nameRaw).trim();
+        Object descriptionRaw = rawTask.get("description");
+        if (descriptionRaw == null) {
+            descriptionRaw = "";
+        }
+        String description = String.valueOf(descriptionRaw).trim();
+        Map<String, TaskParameterDefinition> params = Map.of();
+        Object rawParams = rawTask.get("params");
+        if (rawParams instanceof Map<?, ?> paramMap) {
+            params = readTaskParameters(paramMap);
+        }
+        Map<String, TaskReturnDefinition> returns = Map.of();
+        Object rawReturns = rawTask.get("returns");
+        if (rawReturns instanceof Map<?, ?> returnMap) {
+            returns = readTaskReturns(returnMap);
+        }
+        Object rawFlow = rawTask.get("flow");
+        Object rawNodes = rawFlow instanceof Map<?, ?> flowMap ? flowMap.get("nodes") : rawTask.get("nodes");
+        FlowDefinition flow = new FlowDefinition(readNodesFromObject(rawNodes));
+        return new TaskDefinition(name, description, params, returns, flow, source);
+    }
+
+    private Map<String, TaskParameterDefinition> readTaskParameters(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, Object> map = ConfigUtil.toMap(section);
+        return readTaskParameters(map);
+    }
+
+    private Map<String, TaskParameterDefinition> readTaskParameters(Map<?, ?> map) {
+        Map<String, TaskParameterDefinition> result = new java.util.LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String name = String.valueOf(entry.getKey()).trim();
+            Object raw = entry.getValue();
+            VariableType type = VariableType.STRING;
+            boolean required = true;
+            Object defaultValue = null;
+
+            if (raw instanceof String rawType) {
+                type = VariableType.valueOf(rawType.trim().toUpperCase());
+            } else if (raw instanceof Map<?, ?> defMap) {
+                Object typeRaw = defMap.get("type");
+                if (typeRaw == null) {
+                    typeRaw = "string";
+                }
+                type = VariableType.valueOf(String.valueOf(typeRaw).trim().toUpperCase());
+                Object requiredRaw = defMap.get("required");
+                if (requiredRaw == null) {
+                    requiredRaw = true;
+                }
+                required = requiredRaw instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(requiredRaw));
+                defaultValue = defMap.containsKey("default") ? defMap.get("default") : defMap.get("initial");
+            }
+
+            result.put(name, new TaskParameterDefinition(name, type, required, defaultValue));
+        }
+        return result;
+    }
+
+    private Map<String, TaskReturnDefinition> readTaskReturns(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, Object> map = ConfigUtil.toMap(section);
+        return readTaskReturns(map);
+    }
+
+    private Map<String, TaskReturnDefinition> readTaskReturns(Map<?, ?> map) {
+        Map<String, TaskReturnDefinition> result = new java.util.LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String name = String.valueOf(entry.getKey()).trim();
+            Object raw = entry.getValue();
+            VariableType type;
+            if (raw instanceof String rawType) {
+                type = VariableType.valueOf(rawType.trim().toUpperCase());
+            } else if (raw instanceof Map<?, ?> defMap) {
+                Object typeRaw = defMap.get("type");
+                if (typeRaw == null) {
+                    typeRaw = "string";
+                }
+                type = VariableType.valueOf(String.valueOf(typeRaw).trim().toUpperCase());
+            } else {
+                type = VariableType.STRING;
+            }
+            result.put(name, new TaskReturnDefinition(name, type));
+        }
+        return result;
     }
 
     private List<FlowNodeDefinition> readNodesFromObject(Object rawNodes) {
@@ -208,6 +389,10 @@ public final class EventLoader {
             return readNodes(maps);
         }
         return List.of();
+    }
+
+    List<FlowNodeDefinition> readNodesFromObjectPublic(Object rawNodes) {
+        return readNodesFromObject(rawNodes);
     }
 
     private List<FlowNodeDefinition> readBranchNodes(Object branchEntry) {

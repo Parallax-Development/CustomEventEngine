@@ -2,6 +2,7 @@ package com.darkbladedev.cee.core.runtime;
 
 import com.darkbladedev.cee.api.ChunkPos;
 import com.darkbladedev.cee.core.flow.ExecutionPlan;
+import com.darkbladedev.cee.core.flow.FlowCompiler;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -111,7 +113,8 @@ public class EventEnginePurgeTest {
 
     private static EventRuntime runtime(Server server, World world, String eventId, ChunkPos origin) {
         EventContextImpl ctx = new EventContextImpl(server, world);
-        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), eventId, new ExecutionPlan(List.of()), ctx, origin);
+        FlowCompiler compiler = new FlowCompiler(node -> c -> {});
+        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), eventId, new ExecutionPlan(List.of()), compiler, ctx, origin, Map.of());
         runtime.setState(com.darkbladedev.cee.api.EventState.RUNNING);
         return runtime;
     }

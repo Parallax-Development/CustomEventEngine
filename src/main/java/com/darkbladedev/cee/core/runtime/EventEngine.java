@@ -19,6 +19,7 @@ import com.darkbladedev.cee.api.TriggerFactory;
 import com.darkbladedev.cee.core.definition.ActionDefinition;
 import com.darkbladedev.cee.core.definition.ActionNodeDefinition;
 import com.darkbladedev.cee.core.definition.EventDefinition;
+import com.darkbladedev.cee.core.definition.TaskDefinition;
 import com.darkbladedev.cee.core.definition.VariableDefinition;
 import com.darkbladedev.cee.core.definition.VariableScope;
 import com.darkbladedev.cee.core.definition.VariableType;
@@ -26,6 +27,8 @@ import com.darkbladedev.cee.core.expansion.ExpansionManager;
 import com.darkbladedev.cee.core.flow.ExecutionPlan;
 import com.darkbladedev.cee.core.flow.FlowCompiler;
 import com.darkbladedev.cee.core.loader.EventLoader;
+import com.darkbladedev.cee.core.loader.TaskLoader;
+import com.darkbladedev.cee.core.loader.TaskValidator;
 import com.darkbladedev.cee.core.registry.EngineRegistry;
 import com.darkbladedev.cee.core.trigger.IntervalTrigger;
 import com.darkbladedev.cee.core.trigger.TriggerCallback;
@@ -64,12 +67,18 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
     private final Map<String, VariableDefinition> globalVariableDefinitions;
     private final Map<String, Object> globalVariables;
     private final Map<String, Serializable> expressionCache;
+    private final TaskLoader taskLoader;
+    private final TaskValidator taskValidator;
+    private Map<String, TaskDefinition> globalTasks;
     private BukkitRunnable expansionTask;
 
     public EventEngine(Plugin plugin) {
         this.plugin = plugin;
         this.registry = new EngineRegistry();
         this.loader = new EventLoader();
+        this.taskLoader = new TaskLoader(loader);
+        this.taskValidator = new TaskValidator();
+        this.globalTasks = Map.of();
         this.lockManager = new ChunkEventLockManager();
         this.definitions = new HashMap<>();
         this.triggers = new HashMap<>();
@@ -107,8 +116,34 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
     }
 
     public void loadDefinitions(File folder) {
+        File tasksFolder = new File(plugin.getDataFolder(), "tasks");
+        loadDefinitions(folder, tasksFolder);
+    }
+
+    public void loadDefinitions(File eventsFolder, File tasksFolder) {
+        Map<String, TaskDefinition> loadedTasks = taskLoader.loadFromFolder(tasksFolder);
+        Map<String, TaskDefinition> validatedTasks = new HashMap<>(loadedTasks);
+        for (Map.Entry<String, TaskDefinition> entry : loadedTasks.entrySet()) {
+            List<String> errors = taskValidator.validate(entry.getValue(), loadedTasks);
+            if (!errors.isEmpty()) {
+                plugin.getLogger().warning("CEE: task '" + entry.getKey() + "' inválida. No se cargará.");
+                for (String error : errors) {
+                    plugin.getLogger().warning(" - " + error);
+                }
+                validatedTasks.remove(entry.getKey());
+            }
+        }
+        globalTasks = validatedTasks;
         definitions.clear();
-        for (EventDefinition definition : loader.loadFromFolder(folder)) {
+        for (EventDefinition definition : loader.loadFromFolder(eventsFolder)) {
+            List<String> errors = taskValidator.validate(definition, globalTasks);
+            if (!errors.isEmpty()) {
+                plugin.getLogger().warning("CEE: evento '" + definition.getId() + "' inválido. No se cargará.");
+                for (String error : errors) {
+                    plugin.getLogger().warning(" - " + error);
+                }
+                continue;
+            }
             definitions.put(definition.getId(), definition);
         }
         syncGlobalVariableDefinitions();
@@ -116,12 +151,21 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
     }
 
     public void reloadDefinitions(File folder, Server server) {
+        File tasksFolder = new File(plugin.getDataFolder(), "tasks");
+        reloadDefinitions(folder, tasksFolder, server);
+    }
+
+    public void reloadDefinitions(File eventsFolder, File tasksFolder, Server server) {
         for (Trigger trigger : triggers.values()) {
             trigger.unregister();
         }
         triggers.clear();
-        loadDefinitions(folder);
+        loadDefinitions(eventsFolder, tasksFolder);
         registerTriggers(server);
+    }
+
+    public Map<String, TaskDefinition> getGlobalTasks() {
+        return globalTasks;
     }
 
     public void registerTriggers(Server server) {
@@ -314,8 +358,7 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         }
         EventContextImpl context = new EventContextImpl(plugin.getServer(), world, globalVariables, definition.getVariables(), globalVariableDefinitions);
         initializeContext(context, definition);
-        ExecutionPlan plan = createExecutionPlan(definition);
-        EventRuntime runtime = new EventRuntime(UUID.randomUUID(), definition.getId(), plan, context, chunkPos);
+        EventRuntime runtime = createRuntime(definition, context, chunkPos);
         runtime.setState(EventState.RUNNING);
         Scope scope = registry.getScopeFactory(definition.getScope().getType())
             .map(factory -> factory.create(definition.getScope().getConfig()))
@@ -334,6 +377,14 @@ public final class EventEngine implements CustomEventEngine, TriggerCallback {
         }
         addRuntime(runtime, definition);
         return StartResult.SUCCESS;
+    }
+
+    public EventRuntime createRuntime(EventDefinition definition, EventContextImpl context, ChunkPos origin) {
+        FlowCompiler compiler = new FlowCompiler(this::buildAction);
+        ExecutionPlan plan = compiler.compile(definition.getFlow());
+        Map<String, TaskDefinition> tasks = new HashMap<>(globalTasks);
+        tasks.putAll(definition.getTasks());
+        return new EventRuntime(UUID.randomUUID(), definition.getId(), plan, compiler, context, origin, tasks);
     }
 
     public void addRuntime(EventRuntime runtime, EventDefinition definition) {

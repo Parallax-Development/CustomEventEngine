@@ -18,6 +18,9 @@ list.all: "{prefix}&eEventos: &f{events}"
 
 reload.success: "{prefix}&aRecarga completada."
 
+tasks.export.success: "{prefix}&aCatálogo exportado: &f{file}"
+tasks.export.error: "{prefix}&cNo se pudo exportar el catálogo. {message}"
+
 event.start.success: "{prefix}&aEvento iniciado: &f{event}"
 event.start.not-found: "{prefix}&cEvento no encontrado: &f{event}"
 event.start.chunk-occupied: "{prefix}&cYa hay un evento en ese chunk."

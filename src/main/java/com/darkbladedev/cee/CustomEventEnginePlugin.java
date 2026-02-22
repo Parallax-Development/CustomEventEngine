@@ -28,6 +28,7 @@ import com.darkbladedev.cee.core.commands.impl.PlayerInfoCommand;
 import com.darkbladedev.cee.core.commands.impl.ReloadCommand;
 import com.darkbladedev.cee.core.commands.impl.ReloadSilentCommand;
 import com.darkbladedev.cee.core.commands.impl.TargetResolver;
+import com.darkbladedev.cee.core.commands.impl.TasksExportCommand;
 import com.darkbladedev.cee.core.actions.SpawnLightningAction;
 import com.darkbladedev.cee.core.actions.ExecuteConsoleCommandAction;
 import com.darkbladedev.cee.core.actions.ExecuteParticipantsCommandAction;
@@ -129,6 +130,7 @@ public final class CustomEventEnginePlugin extends JavaPlugin {
         commandManager.registerSubCommand(new EventPurgeWorldCommand(commandServices, messageService));
         commandManager.registerSubCommand(new EventPurgeRegionCommand(commandServices, messageService));
         commandManager.registerSubCommand(new PlayerInfoCommand(commandServices, messageService));
+        commandManager.registerSubCommand(new TasksExportCommand(commandServices, messageService));
         commandManager.register();
     }
 

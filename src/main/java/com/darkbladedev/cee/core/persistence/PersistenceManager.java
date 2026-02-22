@@ -81,9 +81,8 @@ public final class PersistenceManager {
                 if (snapshot.getVariables() != null) {
                     context.getVariables().putAll(snapshot.getVariables());
                 }
-                ExecutionPlan plan = engine.createExecutionPlan(definition);
                 ChunkPos origin = ChunkUtil.fromWorld(world, snapshot.getOriginX(), snapshot.getOriginZ());
-                EventRuntime runtime = new EventRuntime(UUID.randomUUID(), definition.getId(), plan, context, origin);
+                EventRuntime runtime = engine.createRuntime(definition, context, origin);
                 runtime.setInstructionPointer(snapshot.getInstructionPointer());
                 runtime.setWaitRemaining(snapshot.getWaitRemaining());
                 List<ChunkPos> chunks = new ArrayList<>();

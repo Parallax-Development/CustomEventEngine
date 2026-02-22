@@ -17,6 +17,7 @@ public final class EventDefinition {
     private final ChunkLoadRules chunkLoadRules;
     private final ChunkUnloadRules chunkUnloadRules;
     private final Map<String, VariableDefinition> variables;
+    private final Map<String, TaskDefinition> tasks;
 
     public EventDefinition(String id,
                            TriggerDefinition trigger,
@@ -27,7 +28,8 @@ public final class EventDefinition {
                            ChunkTargetDefinition target,
                            ChunkLoadRules chunkLoadRules,
                            ChunkUnloadRules chunkUnloadRules,
-                           Map<String, VariableDefinition> variables) {
+                           Map<String, VariableDefinition> variables,
+                           Map<String, TaskDefinition> tasks) {
         this.id = Objects.requireNonNull(id, "id");
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.conditions = List.copyOf(conditions);
@@ -42,6 +44,12 @@ public final class EventDefinition {
             map.putAll(variables);
         }
         this.variables = Collections.unmodifiableMap(map);
+
+        Map<String, TaskDefinition> taskMap = new LinkedHashMap<>();
+        if (tasks != null) {
+            taskMap.putAll(tasks);
+        }
+        this.tasks = Collections.unmodifiableMap(taskMap);
     }
 
     public String getId() {
@@ -82,5 +90,9 @@ public final class EventDefinition {
 
     public Map<String, VariableDefinition> getVariables() {
         return variables;
+    }
+
+    public Map<String, TaskDefinition> getTasks() {
+        return tasks;
     }
 }
