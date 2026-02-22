@@ -28,7 +28,7 @@ java {
     }
 }
 group = "com.darkbladedev.cee"
-version = "1.0.9"
+version = "1.0.10"
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
